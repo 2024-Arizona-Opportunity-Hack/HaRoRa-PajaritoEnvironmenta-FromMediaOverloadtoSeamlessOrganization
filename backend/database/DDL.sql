@@ -8,12 +8,13 @@ CREATE TABLE image_detail (
     title TEXT,
     caption TEXT,
     tags TEXT,
-    embedding_vector VECTOR(2048),
+    embedding_vector VECTOR(768),
     coordinates GEOMETRY(POINT, 4326),
     capture_time TIMESTAMP,
     extended_meta JSON,
+    season TEXT,
     updated_at TIMESTAMP,
-    created_at TIMESTAMP
+    created_at TIMESTAMP DEFAULT NOW()
 );
 
 -- Index creation for searching on coordinates
