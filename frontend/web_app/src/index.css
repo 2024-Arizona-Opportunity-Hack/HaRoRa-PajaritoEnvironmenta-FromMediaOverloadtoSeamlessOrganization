@@ -1,3 +1,7 @@
+/* src/index.css */
+
 @tailwind base;
-    @tailwind components;
-    @tailwind utilities;
+@tailwind components;
+@tailwind utilities;
+
+/* You can add custom styles below this line */
