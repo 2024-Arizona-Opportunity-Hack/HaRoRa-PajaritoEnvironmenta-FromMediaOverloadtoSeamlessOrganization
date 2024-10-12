@@ -1,0 +1,14 @@
+[tool.poetry]
+name = "peec-media-backend"
+version = "0.1.0"
+description = "automates media organization, metadata extraction, and integrates with essential tools for seamless and efficient media management."
+authors = ["Saurabh Zinjad <zinjadsaurabh1997@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.12"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
