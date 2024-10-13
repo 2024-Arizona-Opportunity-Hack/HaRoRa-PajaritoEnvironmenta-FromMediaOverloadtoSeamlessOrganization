@@ -2,10 +2,11 @@ import io
 import os
 import json
 import base64
-import replicate
+from urllib.parse import urlparse, urlunparse
 from PIL.ExifTags import TAGS, GPSTAGS
 from PIL import Image
 from typing import List
+import requests
 from together import Together
 from pydantic import BaseModel, Field
 from langchain.prompts import PromptTemplate
@@ -15,7 +16,7 @@ import structured_llm_output
 class ImageData(BaseModel):
     title: str = Field(desc="Short filename-like title describing the image content")
     image_description: str = Field(desc="One-line caption describing what the image is about")
-    tags: List[str] = Field(desc="List of concise tags for image retrieval, including objects, actions, settings, seasons, locations, image type, text, and distinctive features", max_length=10)
+    tags: List[str] = Field(desc="List of concise tags for image retrieval, including objects, actions, settings, seasons, locations, image type, text, and distinctive features", max_length=20)
     class Config:
         schema_extra = {
             "example": {
@@ -33,12 +34,42 @@ IMAGE_CAPTIONING_PROMPT = """Analyze the image and provide a detailed, factual d
 focusing on the following aspects:
 {format_instructions} """
 
+def is_url(string):
+    try:
+        result = urlparse(string)
+        return all([result.scheme, result.netloc])
+    except ValueError:
+        return False
+
+def convert_to_raw_url(url):
+    # Parse the URL into components
+    parsed_url = urlparse(url)
+    
+    # Rebuild the URL without query parameters and add ?raw=1
+    new_url = urlunparse((parsed_url.scheme, parsed_url.netloc, parsed_url.path, '', '', ''))
+    return new_url + "?raw=1"
+
+def download_image(url):
+    if 'dropbox' in url:
+        url = convert_to_raw_url(url)
+    response = requests.get(url)
+    if response.status_code == 200:
+        return Image.open(io.BytesIO(response.content))
+    else:
+        raise Exception("Failed to download image")
+
+def get_image(image_path: str):
+    if is_url(image_path):
+        image = download_image(image_path)
+    else:
+        return open(image_path, "rb")
+    
 def resize_and_encode_image(image_path, max_size=(1024, 1024)):
     with Image.open(image_path) as img:
         img.thumbnail(max_size)
         buffered = io.BytesIO()
-        img.save(buffered, format="JPEG")
-        return base64.b64encode(buffered.getvalue()).decode('utf-8')
+        img.save(buffered, format=img.format)
+        return f"data:image/{img.format};base64,{base64.b64encode(buffered.getvalue()).decode('utf-8')}"
 
 def get_vision_response(prompt: str, image_path: str):
     try:
@@ -51,14 +82,14 @@ def get_vision_response(prompt: str, image_path: str):
         if image_path:
             messages[0]["content"].append({
                     "type": "image_url",
-                    "image_url": { "url": f"data:image/jpeg;base64,{resize_and_encode_image(image_path)}" },
+                    "image_url": { "url": resize_and_encode_image(image_path) },
                 })
         response = structured_llm_output.run(
-            model="meta-llama/Llama-3.2-90B-Vision-Instruct-Turbo",
+            model="gpt-4o-mini",
             messages=messages,
             max_retries=3,
             response_model=ImageData,
-            temp=0.7
+            temp=0.8
         )
 
         result = json.loads(response.model_dump_json())
@@ -66,30 +97,32 @@ def get_vision_response(prompt: str, image_path: str):
     except Exception as e:
         print(e)
 
-def get_image_embedding(image_path: str):
+
+
+from typing import List
+from transformers import CLIPProcessor, CLIPModel
+import torch
+
+def get_image_embedding(image_path: str) -> List[float]:
   try:
-    image = open(image_path, "rb")
-    output = replicate.run(
-      "andreasjansson/clip-features:75b33f253f7714a281ad3e9b28f63e3232d583716ef6718f2e46641077ea040a",
-      input={
-          "inputs": image
-      }
-      )
-    return output[0]['embedding']
+    image = Image.open(image_path)
+    inputs = processor(images=image, return_tensors="pt")
+    outputs = model.get_image_features(**inputs)
+    return outputs[0].tolist()
   except Exception as e:
     print(e)
 
-def get_text_embedding(text: str):
+def get_text_embedding(text: str) -> List[float]:
   try:
-    output = replicate.run(
-      "andreasjansson/clip-features:75b33f253f7714a281ad3e9b28f63e3232d583716ef6718f2e46641077ea040a",
-      input={
-          "inputs": text
-      }
-      )
-    return output[0]['embedding']
+    inputs = processor(text=[text], return_tensors="pt")
+    outputs = model.get_text_features(**inputs)
+    return outputs[0].tolist()
   except Exception as e:
     print(e)
+
+# Initialize the model and processor
+model: CLIPModel = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+processor: CLIPProcessor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
 def get_image_captioning(image_path: str):
   try:
@@ -159,7 +192,7 @@ def extract_image_metadata(image_path: str):
         print("No EXIF metadata found.")
         return
 
-    img_metadata['capture_date'] = exif_data.get('DateTimeOriginal', None)
+    img_metadata['capture_date'] = exif_data.get('Date/TimeOriginal', None)
 
     gps_info = get_gps_info(exif_data)
 
@@ -169,10 +202,6 @@ def extract_image_metadata(image_path: str):
         img_metadata['longitude'] = gps_info.get('Longitude', None)
     else:
         print("No GPS information found.")
-
-    print("Other EXIF metadata:")
-    for key, value in exif_data.items():
-        img_metadata[key] = value
     
     return img_metadata
 
@@ -180,6 +209,6 @@ if __name__ == "__main__":
     image_path = "/Users/saurabh/AA/divergent/ASU Graduation Ceremony/IMG_7918.JPG"
     dropbox_img_path = "https://www.dropbox.com/sh/34kuc:re3kg4bes/AACDsAS8URMseqXl1JrXqy84a/2017/_FINAL-2017Nov18-SmallFryProspectMine-WithPatrickRowe-PHOTOS-From-Dave-Schiferl?e=2&preview=_DSC6125-Small-Fry-Prospect-Mine-Searching-For-Fluorite.JPG&st=5n2irk4w&subfolder_nav_tracking=1&dl=0"
     # print(get_text_embedding("A couple walking hand in hand on a beach during sunset"))
-    # print(get_image_captioning(image_path))
+    print(get_image_embedding(dropbox_img_path))
     # print(extract_image_metadata(image_path))
     # get_image_captioning(dropbox_img_path)

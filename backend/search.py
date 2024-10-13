@@ -10,13 +10,16 @@ class SearchArgs(BaseModel):
     date_to: Optional[str] = Field(None, desc='if they query mentions a date range, what would be the end date? Return in dd/mm/yyyy format')
 
 
-
-if __name__ == '__main__':
-  inp = '2023 opportunity hack videos'
+def get_search_args(query: str) -> SearchArgs | None:
   results = structured_llm_output.run(
-    model="meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
-    messages=[structured_llm_output.Message("user", inp)],
+    model="meta-llama/Meta-Llama-3.1-8B-Instruct-Turbo",
+    messages=[structured_llm_output.Message("user", query)],
     max_retries=3,
     response_model=SearchArgs,
   )
-  print(results)
+  return results
+
+if __name__ == '__main__':
+  inp = '2023 opportunity hack videos'
+  print(get_search_args(inp))
+

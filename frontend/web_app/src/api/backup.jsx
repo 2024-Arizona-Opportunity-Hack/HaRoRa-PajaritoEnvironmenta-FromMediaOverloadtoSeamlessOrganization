@@ -1,7 +1,7 @@
-/*import axios from 'axios';
+import axios from 'axios';
 
 // Set the base URL for Axios
-axios.defaults.baseURL = 'http://localhost:5000'; // Update this to your backend URL
+axios.defaults.baseURL = 'http://localhost:8080'; // Update this to your backend URL
 
 // Upload files to the server
 export const uploadFiles = async (files, tags) => {
@@ -51,40 +51,3 @@ export const updateTags = async (uuid, tags) => {
     throw error;
   }
 };
-*/
-export const searchMedia = async (query) => {
-    // Mock data
-    const mockData = [
-      {
-        id: '1',
-        filename: 'image1.jpg',
-        thumbnailUrl: 'https://via.placeholder.com/300x200',
-        tags: ['nature', 'forest'],
-      },
-      {
-        id: '2',
-        filename: 'image2.jpg',
-        thumbnailUrl: 'https://via.placeholder.com/300x200',
-        tags: ['city', 'buildings'],
-      },
-      {
-        id: '3',
-        filename: 'image3.jpg',
-        thumbnailUrl: 'https://via.placeholder.com/300x200',
-        tags: ['ocean', 'beach'],
-      },
-      // Add more items if needed
-    ];
-  
-    // Simulate filtering based on the query
-    const filteredData = mockData.filter((item) =>
-      item.tags.some((tag) => tag.toLowerCase().includes(query.toLowerCase()))
-    );
-  
-    // Simulate network delay
-    return new Promise((resolve) => {
-      setTimeout(() => {
-        resolve(filteredData);
-      }, 500);
-    });
-  };
