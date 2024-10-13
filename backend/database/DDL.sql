@@ -3,18 +3,19 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 
 -- Table creation 
 CREATE TABLE image_detail (
-    uuid UUID PRIMARY KEY,
-    url TEXT,
-    title TEXT,
-    caption TEXT,
-    tags TEXT,
-    embedding_vector VECTOR(768),
-    coordinates GEOMETRY(POINT, 4326),
-    capture_time TIMESTAMP,
-    extended_meta JSON,
-    season TEXT,
-    updated_at TIMESTAMP,
-    created_at TIMESTAMP DEFAULT NOW()
+                              uuid UUID PRIMARY KEY,
+                              url TEXT,
+                              title TEXT,
+                              caption TEXT,
+                              tags TEXT,
+                              title_caption_tags_fts_vector generated always as  (to_tsvector('english', COALESCE(tags, '') || ' ' || COALESCE(title, '') || ' ' || COALESCE(caption, ''))) stored.
+                              embedding_vector VECTOR(768),
+                              coordinates GEOMETRY(POINT, 4326),
+                              capture_time TIMESTAMP,
+                              extended_meta JSON,
+                              season TEXT,
+                              updated_at TIMESTAMP,
+                              created_at TIMESTAMP
 );
 
 -- Index creation for searching on coordinates
