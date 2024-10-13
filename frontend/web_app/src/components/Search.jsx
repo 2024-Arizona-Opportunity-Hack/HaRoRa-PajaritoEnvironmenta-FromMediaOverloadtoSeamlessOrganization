@@ -101,6 +101,20 @@ function Search() {
                     className="btn btn-xs btn-outline"
                     onClick={() => {
                       setSelectedUuid(item.uuid);
+                      console.log(item.tags);
+                      setSelectedTags(item.tags);
+                      // Open in new tab
+                      window.open(item.url, '_blank');
+                    }}
+                  >
+                    Open In Dropbox
+                  </button>
+
+
+                  <button
+                    className="btn btn-xs btn-outline"
+                    onClick={() => {
+                      setSelectedUuid(item.uuid);
                       console.log(item.tags)
                     setSelectedTags(item.tags)}}
                   >
