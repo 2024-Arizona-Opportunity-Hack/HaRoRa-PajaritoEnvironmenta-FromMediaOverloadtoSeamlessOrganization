@@ -49,6 +49,7 @@ async def auth_dropbox_callback(request: Request):
         token_response_data = token_response.json()
         
         access_token = token_response_data['access_token']
+        print('Access Token:', access_token)
         refresh_token = token_response_data.get('refresh_token')
         
         # Fetch user information
@@ -96,6 +97,20 @@ async def profile(request: Request):
         raise HTTPException(status_code=401, detail='Unauthorized')
     return {'name': user['name'], 'email': user['email'], 'account_id': user['account_id']}
 
+
+# ===
+# DropBox API
+# ===
+
+
 if __name__ == '__main__':
     import uvicorn
     uvicorn.run('dropbox_integration:app', host='localhost', port=8080, reload=True)
+
+"""
+curl -X POST https://api.dropboxapi.com/2/files/list_folder \
+    --header "Authorization: Bearer sl.<Token>" \
+    --header "Content-Type: application/json" \
+    --data "{\"include_deleted\":false,\"include_has_explicit_shared_members\":false,\"include_media_info\":false,\"include_mounted_folders\":true,\"include_non_downloadable_files\":true,\"path\":\"\",\"recursive\":false}"
+
+"""

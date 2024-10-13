@@ -31,20 +31,24 @@ function UploadPage() {
   };
 
   // If the user is not logged in, show the "Login with Dropbox" button
-  if (!profile) {
-    return (
-      <div className="container mx-auto max-w-4xl">
-        <h1 className="text-2xl font-bold my-4">Upload Media</h1>
-        {error && <p className="text-red-500 mb-4">{error}</p>}
-        <button
-          className="bg-blue-500 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded"
-          onClick={handleLogin}
-        >
-          Login with Dropbox
-        </button>
-      </div>
-    );
-  }
+if (!profile) {
+  return (
+    <div className="container mx-auto max-w-4xl flex flex-col justify-center items-center h-screen">
+      <h1 className="text-4xl font-bold mb-6 text-gray-800">Welcome to Media Manager</h1>
+      <p className="text-lg mb-6 text-gray-600">
+        Please log in to upload your media and manage your files.
+      </p>
+      <button
+        className="btn btn-primary py-3 px-6"  
+        onClick={handleLogin}
+      >
+        Login with Dropbox
+      </button>
+    </div>
+  );
+}
+
+  
 
   // If the user is logged in, show profile info, upload form, and logout button
   return (
