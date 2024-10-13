@@ -113,7 +113,7 @@ async def search_files(query: str = None):
     )
     if results is not None:
       results = [
-        dict(url=x.url, title=x.title, caption=x.caption, tags=x.tags, season=x.season, uuid=x.uuid)
+        dict(url=x.url, title=x.title, caption=x.caption, tags=x.tags.split(','), season=x.season, uuid=x.uuid)
         for x in results
       ]
     else:

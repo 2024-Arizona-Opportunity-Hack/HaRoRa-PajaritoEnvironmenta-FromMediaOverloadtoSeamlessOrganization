@@ -62,15 +62,31 @@ export const uploadFiles = async (files, tags) => {
   }
 };
 
-// Search for media
+// Search for media (mocked for testing)
 export const searchMedia = async (query) => {
-  try {
-    const response = await axios.get('/search', { params: { q: query } });
-    return response.data;
-  } catch (error) {
-    console.error('Error searching media:', error);
-    throw error;
-  }
+  // Mock data structure based on your example
+return{
+    results: [
+      {
+        url: "/tmp/79aba3e1-60af-4145-893e-598407ec3f62.jpeg",
+        title: "A student wearing headphones and working on a laptop in a classroom setting",
+        caption: "A young man with dark hair, wearing white pants and a black shirt, sits in a beige chair at a desk with a laptop and tablet. He is wearing headphones and has a backpack on the floor next to him.",
+        tags: "student,headphones,laptop,tablet,classroom,desk,backpack,beige,white,black,dark hair,young man",
+        uuid: "1121a4c1-9bbd-4d86-91b7-4a34498fb5ac",
+      },
+    ],
+  };
+
+  // Simulating an API delay
+  return new Promise((resolve) => {
+    setTimeout(() => {
+      // Filter mock data by query if provided
+      const filteredResults = mockData.results.filter((item) =>
+        item.title.toLowerCase().includes(query.toLowerCase())
+      );
+      resolve({ results: filteredResults });
+    }, 500); // Simulated delay of 500ms
+  });
 };
 
 // Get or update tags for a specific media item

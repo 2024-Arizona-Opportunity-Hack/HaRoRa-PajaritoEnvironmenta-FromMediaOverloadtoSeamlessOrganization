@@ -68,7 +68,7 @@ def resize_and_encode_image(image_path, max_size=(1024, 1024)):
     with Image.open(image_path) as img:
         img.thumbnail(max_size)
         buffered = io.BytesIO()
-        img.save(buffered, format="JPEG")
+        img.save(buffered, format=img.format)
         return base64.b64encode(buffered.getvalue()).decode('utf-8')
 
 def get_vision_response(prompt: str, image_path: str):
