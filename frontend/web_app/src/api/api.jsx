@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Set the base URL for Axios
-axios.defaults.baseURL = 'http://localhost:5000'; // Update this to your backend URL
+axios.defaults.baseURL = 'http://localhost:8080'; // Update this to your backend URL
 
 // Upload files to the server
 export const uploadFiles = async (files, tags) => {
