@@ -1,54 +1,33 @@
-# 2024_fall Hackathon Project
+# Media Content Search and Tagging System
 
-## Quick Links
+## Easily find and organize media content using AI-powered search and tagging functionality
 
--   [Hackathon Details](https://www.ohack.dev/hack/2024_fall)
--   [Team Slack Channel](https://opportunity-hack.slack.com/app_redirect?channel=harora)
--   [Nonprofit Partner](https://ohack.dev/nonprofit/fxa4e9jiAKfcWL3GojRF)
--   [Problem Statement](https://ohack.dev/project/3vOLKEFoQL67JQ3d2oAr)
-
-## Creator
-
-@Rohan Mahesh Awhad (on Slack)
-
-## Team "HaRoRa"
+## Team "HaRoRa" and It's Amazing Contributor
 
 -   [Saurabh Zinjad](https://github.com/Ztrimus)
 -   [Rohan Awhad](https://github.com/RohanAwhad)
--   [Team Member 3](GitHub profile link)
-<!-- Add all team members -->
+-   [Harsh Challa](https://github.com/Harshchalla)
+-   [Rajat Pawar](https://github.com/rajat98)
+
+### Slack Channel
+
+https://opportunity-hack.slack.com/archives/C07RLQUHRR8
 
 ## Project Overview
 
-Brief description of your project and its goals.
+Our project aims to streamline and automate efficient media organization using AI. The solution uses content-based image retrieval (CBIR) to automatically tag and organize photos, making it easy to find specific images based on visual content, metadata, and custom tags. The system is integrate with cloud storage, providing a simple interface for uploading, searching, and sharing media files while ensuring robust backup and file management. The ultimate goal is to improve efficiency, reduce manual effort, and enhance media accessibility for anyone.
 
 ## Tech Stack
 
--   Frontend:
--   Backend:
--   Database:
--   APIs:
-<!-- Add/modify as needed -->
+-   Frontend: ReactJs, JavaScript
+-   Backend: Python, FastAPI
+-   Cloud: AWS
+-   Database: Postgres
+-   APIs: Dropbox,
 
 ## Getting Started
 
-Instructions on how to set up and run your project locally.
-
-```bash
-# Example commands
-git clone [your-repo-link]
-cd [your-repo-name]
-npm install
-npm start
-```
-
 ## Your next steps
-
-1. ✅ Add everyone on your team to your GitHub repo like [this video posted in our Slack channel](https://opportunity-hack.slack.com/archives/C1Q6YHXQU/p1605657678139600)
-2. ✅ Create your DevPost project [like this video](https://youtu.be/vCa7QFFthfU?si=bzMQ91d8j3ZkOD03)
-3. ✅ Use the [2024 DevPost](https://opportunity-hack-2024-arizona.devpost.com) to submit your project
-4. ✅ Your DevPost final submission demo video should be 4 minutes or less
-5. ✅ Review the judging criteria on DevPost
 
 # What should your final Readme look like?
 

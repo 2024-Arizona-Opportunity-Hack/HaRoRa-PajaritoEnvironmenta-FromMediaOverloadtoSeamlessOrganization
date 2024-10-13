@@ -124,9 +124,6 @@ def get_text_embedding(text: str) -> List[float]:
 model: CLIPModel = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
 processor: CLIPProcessor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
-
-
-
 def get_image_captioning(image_path: str):
   try:
     client = Together()
