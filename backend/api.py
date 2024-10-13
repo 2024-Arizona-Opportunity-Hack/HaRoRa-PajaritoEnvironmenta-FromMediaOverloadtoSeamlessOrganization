@@ -83,7 +83,8 @@ async def auth_dropbox_callback(request: Request):
         request.session['user'] = {
             'name': user_info['name']['display_name'],
             'email': user_info['email'],
-            'account_id': user_info['account_id']
+            'account_id': user_info['account_id'],
+            'access_token': access_token,
         }
     except Exception as error:
         return HTMLResponse(f'<h1>{error}</h1>')
@@ -123,7 +124,11 @@ def validate_image(file: UploadFile):
 
 
 @app.post("/upload")
-async def upload_images(files: List[UploadFile] = File(...), tags: str | None = Form(...)) -> dict:
+async def upload_images(request: Request, files: List[UploadFile] = File(...), tags: str | None = Form(...)) -> dict:
+    user = request.session.get('user')
+    if not user:
+        raise HTTPException(status_code=401, detail='Unauthorized')
+    access_token = user['access_token']
     uploaded_files: List[dict] = []
     for file in files:
         try:
@@ -140,7 +145,7 @@ async def upload_images(files: List[UploadFile] = File(...), tags: str | None = 
         file_location = f"/tmp/{file_id}.{file_type}"
         with open(file_location, "wb") as buffer:
             buffer.write(await file.read())
-        file_queue.put(file_location)
+        file_queue.put((file_location, access_token))
 
     # Store tags
     for tag in tags.split(","):
@@ -227,11 +232,49 @@ import time
 import process as image_processor
 from datetime import datetime
 
+import requests
+
+def upload_to_dropbox(access_token, file_path, dropbox_path):
+    url = "https://content.dropboxapi.com/2/files/upload"
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Dropbox-API-Arg": json.dumps({
+            "path": dropbox_path,
+            "mode": "add",
+            "autorename": False,
+            "mute": False,
+            "strict_conflict": False
+        }),
+        "Content-Type": "application/octet-stream"
+    }
+
+    # Open the local file in binary mode to send it in the request
+    with open(file_path, 'rb') as file:
+        response = requests.post(url, headers=headers, data=file)
+
+    # Check for response status and return accordingly
+    if response.status_code == 200:
+        return response.json()  # Dropbox's successful response
+    else:
+        return {"error": response.text}  # Handle the error response
+
+# Example usage:
+#access_token = "<get access token>"
+#local_file_path = "local_file.txt"
+#dropbox_destination_path = "/Homework/math/Matrices.txt"
+
+#response = upload_to_dropbox(access_token, local_file_path, dropbox_destination_path)
+#print(response)
 
 
-def process_file(file_path: str):
+import os
+def process_file(file_path: str, access_token: str):
   # Simulate file processing delay
-  url = file_path # TODO: change to dropbox url 
+  dropbox_destination_path = '/images/' + os.path.basename(file_path)
+  response = upload_to_dropbox(access_token, file_path, dropbox_destination_path)
+  print(response)
+
+  url = f'https://www.dropbox.com/home/Apps/PeecMediaManager/images?preview={os.path.basename(file_path)}'
   thumbnail_url = image_processor.resize_and_encode_image(file_path)
 
   print('Getting title, caption, and tags ...')
@@ -293,8 +336,8 @@ def process_file(file_path: str):
 def file_processor():
   while True:
     if not file_queue.empty():
-      file_path = file_queue.get()
-      process_file(file_path)
+      file_path, access_token = file_queue.get()
+      process_file(file_path, access_token)
     else:
       time.sleep(1)
 
