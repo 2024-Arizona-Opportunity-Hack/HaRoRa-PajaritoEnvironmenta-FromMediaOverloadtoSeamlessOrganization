@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { searchMedia } from '../api/api';
+import { searchMedia } from '../api/api.jsx';
 import TagEditor from './TagEditor';
 
 function Search() {
@@ -69,13 +69,13 @@ function Search() {
       )}
 
       {/* Search Results */}
-      {!loading && results.length > 0 && (
+      {!loading && results && results.length > 0 && (
         <div className="mt-4 grid grid-cols-3 gap-4">
           {results.slice(0, 9).map((item) => (
             <div key={item.id} className="card bg-base-100 shadow-md">
               <figure>
                 <img
-                  src={item.thumbnailUrl}
+                  src={item.thumbnail_url}
                   alt={item.url}
                   className="w-full h-48 object-cover"
                 />
@@ -100,7 +100,7 @@ function Search() {
       )}
 
       {/* No Results Message */}
-      {!loading && results.length === 0 && query && (
+      {!loading && (!results || results.length === 0) && query && (
         <div className="mt-4 text-center">
           <p className="text-gray-500">No results found for "{query}".</p>
         </div>
