@@ -2,10 +2,12 @@ import io
 import os
 import json
 import base64
+from urllib.parse import urlparse, urlunparse
 import replicate
 from PIL.ExifTags import TAGS, GPSTAGS
 from PIL import Image
 from typing import List
+import requests
 from together import Together
 from pydantic import BaseModel, Field
 from langchain.prompts import PromptTemplate
@@ -33,6 +35,36 @@ IMAGE_CAPTIONING_PROMPT = """Analyze the image and provide a detailed, factual d
 focusing on the following aspects:
 {format_instructions} """
 
+def is_url(string):
+    try:
+        result = urlparse(string)
+        return all([result.scheme, result.netloc])
+    except ValueError:
+        return False
+
+def convert_to_raw_url(url):
+    # Parse the URL into components
+    parsed_url = urlparse(url)
+    
+    # Rebuild the URL without query parameters and add ?raw=1
+    new_url = urlunparse((parsed_url.scheme, parsed_url.netloc, parsed_url.path, '', '', ''))
+    return new_url + "?raw=1"
+
+def download_image(url):
+    if 'dropbox' in url:
+        url = convert_to_raw_url(url)
+    response = requests.get(url)
+    if response.status_code == 200:
+        return Image.open(io.BytesIO(response.content))
+    else:
+        raise Exception("Failed to download image")
+
+def get_image(image_path: str):
+    if is_url(image_path):
+        image = download_image(image_path)
+    else:
+        return open(image_path, "rb")
+    
 def resize_and_encode_image(image_path, max_size=(1024, 1024)):
     with Image.open(image_path) as img:
         img.thumbnail(max_size)
@@ -68,7 +100,7 @@ def get_vision_response(prompt: str, image_path: str):
 
 def get_image_embedding(image_path: str):
   try:
-    image = open(image_path, "rb")
+    image = get_image(image_path)
     output = replicate.run(
       "andreasjansson/clip-features:75b33f253f7714a281ad3e9b28f63e3232d583716ef6718f2e46641077ea040a",
       input={
@@ -180,6 +212,6 @@ if __name__ == "__main__":
     image_path = "/Users/saurabh/AA/divergent/ASU Graduation Ceremony/IMG_7918.JPG"
     dropbox_img_path = "https://www.dropbox.com/sh/34kuc:re3kg4bes/AACDsAS8URMseqXl1JrXqy84a/2017/_FINAL-2017Nov18-SmallFryProspectMine-WithPatrickRowe-PHOTOS-From-Dave-Schiferl?e=2&preview=_DSC6125-Small-Fry-Prospect-Mine-Searching-For-Fluorite.JPG&st=5n2irk4w&subfolder_nav_tracking=1&dl=0"
     # print(get_text_embedding("A couple walking hand in hand on a beach during sunset"))
-    # print(get_image_captioning(image_path))
+    print(get_image_embedding(dropbox_img_path))
     # print(extract_image_metadata(image_path))
     # get_image_captioning(dropbox_img_path)
