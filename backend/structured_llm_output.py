@@ -13,7 +13,7 @@ class Message:
   role: str
   content: str
 
-def llm_call(model: str, messages: list[Message]):
+def llm_call(model: str, messages: list[Message], temp: float= None):
   message_list = []
   for message in messages:
     if dataclasses.is_dataclass(message):
@@ -21,7 +21,7 @@ def llm_call(model: str, messages: list[Message]):
     else:
       message_list.append(message)
   client = openai.OpenAI(api_key=os.environ["TOGETHER_API_KEY"], base_url="https://api.together.xyz/v1")
-  res = client.chat.completions.create(model=model, messages=message_list, temperature=0.8, max_tokens=4096)
+  res = client.chat.completions.create(model=model, messages=message_list, temperature=temp, max_tokens=4096)
   return res.choices[0].message.content
 
 
@@ -72,7 +72,7 @@ def parse_llm_response(model: type[BaseModel], llm_res: str):
   return None
 
 
-def run(model: str, messages: list[Message], max_retries: int, response_model: Optional[type(BaseModel)] = None):
+def run(model: str, messages: list[Message], max_retries: int, response_model: Optional[type(BaseModel)] = None, temp: float = None):
   #messages[0].content += f"\n---\n\n{generate_response_prompt(response_model)}---\n"
   suffix = f"\n---\n\n{generate_response_prompt(response_model)}---\n"
   if dataclasses.is_dataclass(messages[-1]):
@@ -88,7 +88,7 @@ def run(model: str, messages: list[Message], max_retries: int, response_model: O
       else:
         raise ValueError("Couldn't find text type in the last message")
   while max_retries:
-    res = llm_call(model, messages)
+    res = llm_call(model, messages, temp)
     ret = parse_llm_response(response_model, res)
     if ret is None: max_retries -= 1
     else: return ret
