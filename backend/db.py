@@ -88,7 +88,8 @@ def get_search_query_result(conn,
                 where_clause_sql += " AND"
             where_clause_sql += " capture_time <= '{}'".format(date_to)
 
-        return "" if where_clause_sql == " WHERE" else where_clause_sql
+        #return "" if where_clause_sql == " WHERE" else where_clause_sql
+        return ''
 
     search_query_with_part = f"""
     with fts_ranked_title_caption_tags as (
