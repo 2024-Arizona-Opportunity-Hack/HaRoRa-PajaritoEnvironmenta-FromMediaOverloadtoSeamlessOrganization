@@ -17,6 +17,10 @@ Cloud-based solution with AI-driven tagging, content-based search, and integrati
 -   Demo video
 -   [Presentation Deck](https://www.canva.com/design/DAGTelmxTQg/Zw9Lq4hmFJxN9nN0FUpgdQ/edit?utm_content=DAGTelmxTQg&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton)
 
+## Inspiration
+
+We’ve observed that many applications offer cloud-based solutions, but their pricing and setup can be prohibitive for non-profit organizations (NPOs) and individuals with limited technical expertise. These standardized solutions are designed for general use, whereas NPOs often have very specific and unique needs. To address this, we aim to explore trade-offs such as utilizing open-source models to minimize infrastructure costs and reduce expenses associated with model usage, making the solution more accessible and tailored for NPOs.
+
 ## Problem Statement
 
 Our project aims to streamline and automate efficient media organization using AI. The solution uses content-based image retrieval (CBIR) to automatically tag and organize photos, making it easy to find specific images based on visual content, metadata, and custom tags. The system is integrate with cloud storage, providing a simple interface for uploading, searching, and sharing media files while ensuring robust backup and file management. The ultimate goal is to:
@@ -57,10 +61,6 @@ Examples of stellar readmes:
 -   ✨ [2020 Team 4](https://github.com/2020-opportunity-hack/Team-04)
 -   ✨ [2020 Team 8](https://github.com/2020-opportunity-hack/Team-08)
 -   ✨ [2020 Team 12](https://github.com/2020-opportunity-hack/Team-12)
-
-## Inspiration
-
-We have seen many application which provide cloud based standard solution but it's pricing and setup might not be suitable for NPO and non-technical people. and this standardized solution are all-purpose solution but NPO's have very niche and pecuilare usecase which with certain trade-off like using open source model to reduce cost of infrastructure and model calling
 
 ## What it does
 
