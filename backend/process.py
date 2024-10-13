@@ -2,6 +2,7 @@ import io
 import os
 import base64
 import replicate
+from PIL.ExifTags import TAGS
 from PIL import Image
 from typing import List
 from together import Together
@@ -63,25 +64,8 @@ def get_vision_response(prompt: str, image_path: str):
             max_retries=3,
             response_model=ImageData,
         )
-        # results = structured_llm_output.run(
-        #     model="meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
-        #     messages=[structured_llm_output.Message("user", result)],
-        #     max_retries=3,
-        #     response_model=ImageData,
-        # )
 
-        # response = client.chat.completions.create(
-        #     model="codellama/CodeLlama-34b-Instruct-hf",
-        #     messages=[{"role": "user", "content": [{"type": "text", "text": result}]}],
-        #     response_format={
-        #         "type": "json_object",
-        #         "schema": ImageData.model_json_schema()
-        #     },
-        #     )
-        # result = response.choices[0].message.content
-
-        
-        return results
+        return response.json()
     except Exception as e:
         print(e)
 
@@ -108,32 +92,30 @@ def get_image_captioning(image_path: str):
        ).format()
     
     response = get_vision_response(prompt=prompt, image_path=image_path)
-
-
-    # stream = client.chat.completions.create(
-    #     model="meta-llama/Llama-3.2-11B-Vision-Instruct-Turbo",
-    #     messages=[
-    #         {
-    #             "role": "user",
-    #             "content": [
-    #                 {"type": "text", "text": getDescriptionPrompt},
-    #                 {
-    #                     "type": "image_url",
-    #                     "image_url": {
-    #                         "url": image_path,
-    #                     },
-    #                 }, 
-    #             ],
-    #         }
-    #     ],
-    #     stream=True,
-    # )
-
-    # for chunk in stream:
-    #     print(chunk.choices[0].delta.content or "", end="", flush=True)
   except Exception as e:
     print(e)
+  
+def extract_image_metadata(image_path):
+    # Open the image file
+    with Image.open(image_path) as img:
+        # Extract EXIF data
+        exif_data = img._getexif()
+        
+        # If there's no EXIF data, return empty
+        if exif_data is None:
+            return "No EXIF metadata found"
+        
+        # Create a dictionary to store metadata
+        metadata = {}
+        
+        # Loop through all EXIF tags and convert them to readable tags
+        for tag, value in exif_data.items():
+            tag_name = TAGS.get(tag, tag)
+            metadata[tag_name] = value
+        
+        return metadata
 
 if __name__ == "__main__":
-  get_image_captioning("/Users/saurabh/Downloads/PEECJillian_photo.jpg")
-  #get_image_captioning("https://www.dropbox.com/sh/34kucxre3kg4bes/AACDsAS8URMseqXl1JrXqy84a/2017/_FINAL-2017Nov18-SmallFryProspectMine-WithPatrickRowe-PHOTOS-From-Dave-Schiferl?e=2&preview=_DSC6125-Small-Fry-Prospect-Mine-Searching-For-Fluorite.JPG&st=5n2irk4w&subfolder_nav_tracking=1&dl=0")
+    extract_image_metadata("/Users/saurabh/Downloads/DSC01280 (1).jpg")
+#   get_image_captioning("/Users/saurabh/Downloads/PEECJillian_photo.jpg")
+  #get_image_captioning("https://www.dropbox.com/sh/34kuc:re3kg4bes/AACDsAS8URMseqXl1JrXqy84a/2017/_FINAL-2017Nov18-SmallFryProspectMine-WithPatrickRowe-PHOTOS-From-Dave-Schiferl?e=2&preview=_DSC6125-Small-Fry-Prospect-Mine-Searching-For-Fluorite.JPG&st=5n2irk4w&subfolder_nav_tracking=1&dl=0")
