@@ -145,7 +145,7 @@ async def upload_images(request: Request, files: List[UploadFile] = File(...), t
         file_location = f"/tmp/{file_id}.{file_type}"
         with open(file_location, "wb") as buffer:
             buffer.write(await file.read())
-        file_queue.put((file_location, access_token))
+        file_queue.put((file_location, [x.strip() for x in tags.split(',') if x.strip()], access_token))
 
     # Store tags
     for tag in tags.split(","):
@@ -268,7 +268,7 @@ def upload_to_dropbox(access_token, file_path, dropbox_path):
 
 
 import os
-def process_file(file_path: str, access_token: str):
+def process_file(file_path: str, tags: list[str], access_token: str):
   # Simulate file processing delay
   dropbox_destination_path = '/images/' + os.path.basename(file_path)
   response = upload_to_dropbox(access_token, file_path, dropbox_destination_path)
@@ -285,7 +285,7 @@ def process_file(file_path: str, access_token: str):
       continue
     title = img_details['title']
     caption = img_details['image_description']
-    tags = ','.join(img_details['tags'])
+    tags = ','.join(tags + img_details['tags'])
     break
 
   print('Getting image embeddings ...')
@@ -336,8 +336,8 @@ def process_file(file_path: str, access_token: str):
 def file_processor():
   while True:
     if not file_queue.empty():
-      file_path, access_token = file_queue.get()
-      process_file(file_path, access_token)
+      file_path, tags, access_token = file_queue.get()
+      process_file(file_path, tags, access_token)
     else:
       time.sleep(1)
 

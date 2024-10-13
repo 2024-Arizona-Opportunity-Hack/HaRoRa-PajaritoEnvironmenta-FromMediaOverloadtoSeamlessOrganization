@@ -100,6 +100,16 @@ function Search() {
                   <button
                     className="btn btn-xs btn-outline"
                     onClick={() => {
+                      window.open(item.url, '_blank');
+                    }}
+                  >
+                    Open In Dropbox
+                  </button>
+
+
+                  <button
+                    className="btn btn-xs btn-outline"
+                    onClick={() => {
                       setSelectedUuid(item.uuid);
                       console.log(item.tags)
                     setSelectedTags(item.tags)}}
