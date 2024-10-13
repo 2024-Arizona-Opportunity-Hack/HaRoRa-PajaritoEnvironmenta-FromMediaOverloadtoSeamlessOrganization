@@ -8,11 +8,12 @@ from together import Together
 from pydantic import BaseModel, Field
 from langchain.prompts import PromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
+import structured_llm_output
 
 class ImageData(BaseModel):
-    title: str = Field(description="Short filename-like title describing the image content")
-    image_description: str = Field(description="One-line caption describing what the image is about")
-    tags: List[str] = Field(description="List of concise tags for image retrieval, including objects, actions, settings, seasons, locations, image type, text, and distinctive features")
+    title: str = Field(desc="Short filename-like title describing the image content")
+    image_description: str = Field(desc="One-line caption describing what the image is about")
+    tags: List[str] = Field(desc="List of concise tags for image retrieval, including objects, actions, settings, seasons, locations, image type, text, and distinctive features", max_length=10)
     class Config:
         schema_extra = {
             "example": {
@@ -51,24 +52,36 @@ def get_vision_response(prompt: str, image_path: str):
                     "image_url": { "url": f"data:image/jpeg;base64,{resize_and_encode_image(image_path)}" },
                 })
 
-        response = client.chat.completions.create(
+        # response = client.chat.completions.create(
+        #     model="meta-llama/Llama-3.2-90B-Vision-Instruct-Turbo",
+        #     temperature=0.3,
+        #     messages=messages)
+        # result = response.choices[0].message.content
+        response = structured_llm_output.run(
             model="meta-llama/Llama-3.2-90B-Vision-Instruct-Turbo",
-            temperature=0.3,
-            messages=messages)
-        result = response.choices[0].message.content
+            messages=messages,
+            max_retries=3,
+            response_model=ImageData,
+        )
+        # results = structured_llm_output.run(
+        #     model="meta-llama/Meta-Llama-3.1-70B-Instruct-Turbo",
+        #     messages=[structured_llm_output.Message("user", result)],
+        #     max_retries=3,
+        #     response_model=ImageData,
+        # )
 
-        response = client.chat.completions.create(
-            model="codellama/CodeLlama-34b-Instruct-hf",
-            messages=[{"role": "user", "content": [{"type": "text", "text": result}]}],
-            response_format={
-                "type": "json_object",
-                "schema": ImageData.model_json_schema()
-            },
-            )
-        result = response.choices[0].message.content
+        # response = client.chat.completions.create(
+        #     model="codellama/CodeLlama-34b-Instruct-hf",
+        #     messages=[{"role": "user", "content": [{"type": "text", "text": result}]}],
+        #     response_format={
+        #         "type": "json_object",
+        #         "schema": ImageData.model_json_schema()
+        #     },
+        #     )
+        # result = response.choices[0].message.content
 
         
-        return result
+        return results
     except Exception as e:
         print(e)
 
