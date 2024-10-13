@@ -1,25 +1,43 @@
-// src/components/Search.jsx
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { searchMedia } from '../api/api';
 import TagEditor from './TagEditor';
 
 function Search() {
-  const [query, setQuery] = useState('');
+  const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const queryFromUrl = searchParams.get('q') || ''; // Get the 'q' param from the URL
+  const [query, setQuery] = useState(queryFromUrl); // Set initial state from the URL query
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedUuid, setSelectedUuid] = useState(null);
 
-  const handleSearch = async () => {
-    setLoading(true);
-    try {
-      const data = await searchMedia(query);
-      setResults(data);
-    } catch (error) {
-      alert('Error fetching search results.');
-    } finally {
-      setLoading(false);
-    }
+  // Function to handle search and update URL
+  const handleSearch = () => {
+    // Update the URL with the query parameter
+    setSearchParams({ q: query });
   };
+
+  // Fetch search results when component mounts or URL query changes
+  useEffect(() => {
+    const fetchSearchResults = async () => {
+      if (queryFromUrl) {
+        setLoading(true);
+        try {
+          const data = await searchMedia(queryFromUrl);
+          console.log(data)
+          setResults(data['results']);
+        } catch (error) {
+          alert('Error fetching search results.');
+        } finally {
+          setLoading(false);
+        }
+      }
+    };
+
+    fetchSearchResults(); // Fetch results on mount or query change
+    console.log(queryFromUrl)
+  }, [queryFromUrl]); // Dependency is the query parameter in the URL
 
   const closeTagEditor = () => {
     setSelectedUuid(null);
@@ -58,19 +76,19 @@ function Search() {
               <figure>
                 <img
                   src={item.thumbnailUrl}
-                  alt={item.filename}
+                  alt={item.url}
                   className="w-full h-48 object-cover"
                 />
               </figure>
               <div className="card-body">
-                <h2 className="card-title text-sm">{item.filename}</h2>
+                <h2 className="card-title text-sm">{item.title}</h2>
                 <p className="text-xs text-gray-600">
-                  Tags: {item.tags.join(', ')}
+                  Tags: {item.tags}
                 </p>
                 <div className="card-actions justify-end">
                   <button
                     className="btn btn-xs btn-outline"
-                    onClick={() => setSelectedUuid(item.id)}
+                    onClick={() => setSelectedUuid(item.uuid)}
                   >
                     Edit Tags
                   </button>
