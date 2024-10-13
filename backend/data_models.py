@@ -5,6 +5,7 @@ from typing import Optional, List
 @dataclasses.dataclass
 class ImageDetail:
     url: str  # primary key
+    thumbnail_url: str
     title: str
     caption: str  # scipdf gives authors in ';' separated string
     tags: str

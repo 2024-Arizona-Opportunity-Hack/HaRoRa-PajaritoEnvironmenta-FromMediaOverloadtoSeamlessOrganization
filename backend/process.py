@@ -69,7 +69,7 @@ def resize_and_encode_image(image_path, max_size=(1024, 1024)):
         img.thumbnail(max_size)
         buffered = io.BytesIO()
         img.save(buffered, format=img.format)
-        return base64.b64encode(buffered.getvalue()).decode('utf-8')
+        return f"data:image/{img.format};base64,{base64.b64encode(buffered.getvalue()).decode('utf-8')}"
 
 def get_vision_response(prompt: str, image_path: str):
     try:
@@ -82,7 +82,7 @@ def get_vision_response(prompt: str, image_path: str):
         if image_path:
             messages[0]["content"].append({
                     "type": "image_url",
-                    "image_url": { "url": f"data:image/jpeg;base64,{resize_and_encode_image(image_path)}" },
+                    "image_url": { "url": resize_and_encode_image(image_path) },
                 })
         response = structured_llm_output.run(
             model="meta-llama/Llama-3.2-11B-Vision-Instruct-Turbo",
@@ -97,30 +97,35 @@ def get_vision_response(prompt: str, image_path: str):
     except Exception as e:
         print(e)
 
-def get_image_embedding(image_path: str):
+
+
+from typing import List
+from transformers import CLIPProcessor, CLIPModel
+import torch
+
+def get_image_embedding(image_path: str) -> List[float]:
   try:
-    image = get_image(image_path)
-    output = replicate.run(
-      "andreasjansson/clip-features:75b33f253f7714a281ad3e9b28f63e3232d583716ef6718f2e46641077ea040a",
-      input={
-          "inputs": image
-      }
-      )
-    return output[0]['embedding']
+    image = Image.open(image_path)
+    inputs = processor(images=image, return_tensors="pt")
+    outputs = model.get_image_features(**inputs)
+    return outputs[0].tolist()
   except Exception as e:
     print(e)
 
-def get_text_embedding(text: str):
+def get_text_embedding(text: str) -> List[float]:
   try:
-    output = replicate.run(
-      "andreasjansson/clip-features:75b33f253f7714a281ad3e9b28f63e3232d583716ef6718f2e46641077ea040a",
-      input={
-          "inputs": text
-      }
-      )
-    return output[0]['embedding']
+    inputs = processor(text=[text], return_tensors="pt")
+    outputs = model.get_text_features(**inputs)
+    return outputs[0].tolist()
   except Exception as e:
     print(e)
+
+# Initialize the model and processor
+model: CLIPModel = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
+processor: CLIPProcessor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
+
+
+
 
 def get_image_captioning(image_path: str):
   try:
