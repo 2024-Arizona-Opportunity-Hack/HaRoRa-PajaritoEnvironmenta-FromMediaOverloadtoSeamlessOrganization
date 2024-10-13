@@ -29,10 +29,7 @@ def generate_random_entry():
         (datetime.now() - timedelta(days=random.randint(0, 365))).strftime('%Y-%m-%d %H:%M:%S'),
         # Random timestamp within the last year
         json.dumps({"camera": random.choice(["Canon EOS R5", "Nikon D850", "Sony A7 III"]),
-                    "location": random.choice(["New York", "Los Angeles", "Chicago"])}),  # Random JSON metadata
-        (datetime.now() - timedelta(days=random.randint(0, 365))).strftime('%Y-%m-%d %H:%M:%S'),
-        # Another random timestamp within the last year
-        (datetime.now() - timedelta(days=random.randint(0, 365))).strftime('%Y-%m-%d %H:%M:%S')
+                    "location": random.choice(["New York", "Los Angeles", "Chicago"])}),
     # Another random timestamp within the last year
     )
     return entry
@@ -51,8 +48,8 @@ def insert_entries_to_db(entries):
 
         insert_query = """
             INSERT INTO image_detail (
-                uuid, url, title, caption, tags, embedding_vector, coordinates, capture_time, extended_meta, updated_at, created_at
-            ) VALUES (%s, %s, %s, %s, %s, %s::float8[], ST_GeomFromText(%s), %s, %s::json, %s, %s)
+                uuid, url, title, caption, tags, embedding_vector, coordinates, capture_time, extended_meta
+            ) VALUES (%s, %s, %s, %s, %s, %s::float8[], ST_GeomFromText(%s), %s, %s::json)
         """
 
         for entry in entries:
