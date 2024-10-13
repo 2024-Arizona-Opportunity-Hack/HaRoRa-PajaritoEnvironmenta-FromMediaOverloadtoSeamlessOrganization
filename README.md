@@ -16,6 +16,7 @@ Cloud-based solution with AI-driven tagging, content-based search, and integrati
 -   [DevPost project](https://devpost.com/software/image-search-and-tagging-tool)
 -   Demo video
 -   [Presentation Deck](https://www.canva.com/design/DAGTelmxTQg/Zw9Lq4hmFJxN9nN0FUpgdQ/edit?utm_content=DAGTelmxTQg&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton)
+-   [User Documentation](https://github.com/2024-Arizona-Opportunity-Hack/HaRoRa-PajaritoEnvironmenta-FromMediaOverloadtoSeamlessOrganization/blob/main/User%20Documentation.pdf)
 
 ## Inspiration
 
