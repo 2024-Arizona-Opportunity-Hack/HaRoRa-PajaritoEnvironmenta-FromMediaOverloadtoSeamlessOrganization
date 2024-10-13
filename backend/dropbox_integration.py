@@ -109,8 +109,9 @@ if __name__ == '__main__':
 
 """
 curl -X POST https://api.dropboxapi.com/2/files/list_folder \
-    --header "Authorization: Bearer sl.<Token>" \
+    --header "Authorization: Bearer <TOKEN>" \
     --header "Content-Type: application/json" \
     --data "{\"include_deleted\":false,\"include_has_explicit_shared_members\":false,\"include_media_info\":false,\"include_mounted_folders\":true,\"include_non_downloadable_files\":true,\"path\":\"\",\"recursive\":false}"
+
 
 """
