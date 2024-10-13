@@ -79,6 +79,18 @@ def get_image_embedding(image_path: str):
   except Exception as e:
     print(e)
 
+def get_text_embedding(text: str):
+  try:
+    output = replicate.run(
+      "andreasjansson/clip-features:75b33f253f7714a281ad3e9b28f63e3232d583716ef6718f2e46641077ea040a",
+      input={
+          "inputs": text
+      }
+      )
+    return output[0]['embedding']
+  except Exception as e:
+    print(e)
+
 def get_image_captioning(image_path: str):
   try:
     client = Together()
@@ -167,6 +179,7 @@ def extract_image_metadata(image_path: str):
 if __name__ == "__main__":
     image_path = "/Users/saurabh/AA/divergent/ASU Graduation Ceremony/IMG_7918.JPG"
     dropbox_img_path = "https://www.dropbox.com/sh/34kuc:re3kg4bes/AACDsAS8URMseqXl1JrXqy84a/2017/_FINAL-2017Nov18-SmallFryProspectMine-WithPatrickRowe-PHOTOS-From-Dave-Schiferl?e=2&preview=_DSC6125-Small-Fry-Prospect-Mine-Searching-For-Fluorite.JPG&st=5n2irk4w&subfolder_nav_tracking=1&dl=0"
+    # print(get_text_embedding("A couple walking hand in hand on a beach during sunset"))
     # print(get_image_captioning(image_path))
-    print(extract_image_metadata(image_path))
+    # print(extract_image_metadata(image_path))
     # get_image_captioning(dropbox_img_path)
