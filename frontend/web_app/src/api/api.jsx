@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 // Set the base URL for Axios
-axios.defaults.baseURL = 'http://localhost:8080'; // Update this to your backend URL
+axios.defaults.baseURL = 'https://peec.harora.lol/api'; // Update this to your backend URL
 
 // Auth
 // get profile info
