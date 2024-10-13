@@ -213,7 +213,7 @@ async def get_tags(file_id: str):
 # PUT /tag/{uuid}
 @app.put("/tag/{file_id}")
 async def update_tags(file_id: str, tags: List[str]):
-    db.update_tags(file_id, tags)
+    db.update_tags(file_id, ','.join(tags))
     return {"message": "Tags updated successfully", "file_id": file_id, "tags": tags}
 
 

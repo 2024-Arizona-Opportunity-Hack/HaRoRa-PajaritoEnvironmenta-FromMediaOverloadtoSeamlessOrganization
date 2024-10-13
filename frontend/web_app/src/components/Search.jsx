@@ -44,6 +44,7 @@ function Search() {
   const closeTagEditor = () => {
     setSelectedUuid(null);
     // Optionally refresh search results after editing tags
+    window.location.reload();
     handleSearch();
   };
 
