@@ -11,6 +11,8 @@ function Search() {
   const [results, setResults] = useState([]);
   const [loading, setLoading] = useState(false);
   const [selectedUuid, setSelectedUuid] = useState(null);
+  const [selectedTags, setSelectedTags] = useState(null);
+
 
   // Function to handle search and update URL
   const handleSearch = () => {
@@ -42,6 +44,7 @@ function Search() {
   const closeTagEditor = () => {
     setSelectedUuid(null);
     // Optionally refresh search results after editing tags
+    window.location.reload();
     handleSearch();
   };
 
@@ -83,12 +86,23 @@ function Search() {
               <div className="card-body">
                 <h2 className="card-title text-sm">{item.title}</h2>
                 <p className="text-xs text-gray-600">
-                  Tags: {item.tags}
+                  Tags:
+                      {(() => {
+                       if(item.tags.length>3){
+                        return " " + item.tags.slice(0,3).join(", ")+", ..."
+                      }else{
+                        return " " + item.tags.slice(0,3)
+                      }
+          })()}
+
                 </p>
                 <div className="card-actions justify-end">
                   <button
                     className="btn btn-xs btn-outline"
-                    onClick={() => setSelectedUuid(item.uuid)}
+                    onClick={() => {
+                      setSelectedUuid(item.uuid);
+                      console.log(item.tags)
+                    setSelectedTags(item.tags)}}
                   >
                     Edit Tags
                   </button>
@@ -107,7 +121,7 @@ function Search() {
       )}
 
       {/* Tag Editor Modal */}
-      {selectedUuid && <TagEditor uuid={selectedUuid} onClose={closeTagEditor} />}
+      {selectedUuid && <TagEditor uuid={selectedUuid} onClose={closeTagEditor} tags={selectedTags} />}
     </div>
   );
 }

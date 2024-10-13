@@ -3,8 +3,8 @@ import uuid
 from typing import Optional, List
 
 import psycopg2
-from psycopg2 import pool
 from psycopg2 import sql
+
 import data_models
 
 # Connect to the database
@@ -154,7 +154,7 @@ def get_search_query_result(conn,
     with conn.cursor() as cur:
         cur.execute(sql.SQL(search_query))
         result = cur.fetchall()
-        print(result)
+        # print(result)
         return [data_models.ImageDetailResult(*x) for x in result] if result else None
 
 
@@ -194,6 +194,14 @@ def insert(
            """
     with conn.cursor() as cur:
         cur.execute(insert_query, entry)
+
+@with_connection
+def update_tags(conn, uuid: str, tags: str):
+    update_query = """
+    UPDATE image_detail SET tags = %s WHERE uuid = %s"""
+
+    with conn.cursor() as cur:
+        cur.execute(update_query, (tags, uuid))
 
 if __name__ == '__main__':
     create_tables()
