@@ -191,7 +191,7 @@ def extract_image_metadata(image_path: str):
         print("No EXIF metadata found.")
         return
 
-    img_metadata['capture_date'] = exif_data.get('DateTimeOriginal', None)
+    img_metadata['capture_date'] = exif_data.get('Date/TimeOriginal', None)
 
     gps_info = get_gps_info(exif_data)
 
