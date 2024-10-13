@@ -43,40 +43,8 @@ Our project aims to streamline and automate efficient media organization using A
 
 ## Rest APIs
 
-![Rest APIs developed by team harora](./docs/resources/rest_apis.jpeg)
+![Rest APIs developed by team harora](https://raw.githubusercontent.com/2024-Arizona-Opportunity-Hack/HaRoRa-PajaritoEnvironmenta-FromMediaOverloadtoSeamlessOrganization/refs/heads/main/docs/resources/rest_apis.jpeg)
 
 ## Database Schema
 
-![Database Schema](./docs/resources/peec_db.png)
-
-## Getting Started
-
-## Your next steps
-
-Examples of stellar readmes:
-
--   ✨ [2019 Team 3](https://github.com/2019-Arizona-Opportunity-Hack/Team-3)
--   ✨ [2019 Team 6](https://github.com/2019-Arizona-Opportunity-Hack/Team-6)
--   ✨ [2020 Team 2](https://github.com/2020-opportunity-hack/Team-02)
--   ✨ [2020 Team 4](https://github.com/2020-opportunity-hack/Team-04)
--   ✨ [2020 Team 8](https://github.com/2020-opportunity-hack/Team-08)
--   ✨ [2020 Team 12](https://github.com/2020-opportunity-hack/Team-12)
-
-## What it does
-
-## How we built it
-
-## Challenges we ran into
-
-## Accomplishments that we're proud of covering following things
-
--   [x] P0
--   [x] manual tagging
--   [x] Cloud
--   [x] Hosted
--   [x] Auth
--   [x] Dropbox integration
-
-## What we learned
-
-## What's next for Image Search and Tagging Tool
+![Database Schema](https://raw.githubusercontent.com/2024-Arizona-Opportunity-Hack/HaRoRa-PajaritoEnvironmenta-FromMediaOverloadtoSeamlessOrganization/refs/heads/main/docs/resources/peec_db.png)
