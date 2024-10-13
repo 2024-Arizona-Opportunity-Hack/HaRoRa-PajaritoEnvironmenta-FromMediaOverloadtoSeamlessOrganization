@@ -40,7 +40,8 @@ CLIENT_URL = 'https://peec.harora.lol'
 
 @app.get('/login')
 async def login(request: Request):
-    redirect_uri = request.url_for('auth_dropbox_callback')
+    #redirect_uri = request.url_for('auth_dropbox_callback')
+    redirect_uri = "https://peec.harora.lol/api/auth/dropbox/callback"
     auth_params = {
         "client_id": os.environ['DROPBOX_CLIENT_ID'],
         "redirect_uri": redirect_uri,
