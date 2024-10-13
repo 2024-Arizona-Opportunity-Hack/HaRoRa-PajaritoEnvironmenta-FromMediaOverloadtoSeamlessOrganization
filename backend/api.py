@@ -14,15 +14,34 @@ from urllib.parse import urlencode
 app = FastAPI()
 file_queue = Queue()
 
+
+app.add_middleware(SessionMiddleware, secret_key=os.environ['FASTAPI_SESSION_SECRET_KEY'])
+# Allow Cross-Origin Resource Sharing (CORS)
+origins = [
+    "http://localhost",
+    "http://localhost:5173",  # example frontend
+    "http://peec.harora.lol"  # replace with your frontend domain
+    "https://peec.harora.lol"  # replace with your frontend domain
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,  # Allows specified origins
+    allow_credentials=True,
+    allow_methods=["*"],  # Allows all methods (GET, POST, PUT, etc.)
+    allow_headers=["*"],  # Allows all headers
+)
+
 # DROPBOX Setup
 AUTH_URI = "https://www.dropbox.com/oauth2/authorize"
 TOKEN_URI = "https://api.dropboxapi.com/oauth2/token"
-CLIENT_URL = 'http://localhost:5173'
+CLIENT_URL = 'https://peec.harora.lol'
 
 
 @app.get('/login')
 async def login(request: Request):
-    redirect_uri = request.url_for('auth_dropbox_callback')
+    #redirect_uri = request.url_for('auth_dropbox_callback')
+    redirect_uri = "https://peec.harora.lol/api/auth/dropbox/callback"
     auth_params = {
         "client_id": os.environ['DROPBOX_CLIENT_ID'],
         "redirect_uri": redirect_uri,
@@ -36,7 +55,8 @@ async def login(request: Request):
 @app.get('/auth/dropbox/callback')
 async def auth_dropbox_callback(request: Request):
     auth_code = request.query_params['code']
-    redirect_uri = request.url_for('auth_dropbox_callback')
+    #redirect_uri = request.url_for('auth_dropbox_callback')
+    redirect_uri = "https://peec.harora.lol/api/auth/dropbox/callback"
     try:
         token_data = {
             "code": auth_code,
@@ -84,23 +104,6 @@ async def profile(request: Request):
         raise HTTPException(status_code=401, detail='Unauthorized')
     return {'name': user['name'], 'email': user['email'], 'account_id': user['account_id']}
 
-
-app.add_middleware(SessionMiddleware, secret_key=os.environ['FASTAPI_SESSION_SECRET_KEY'])
-# Allow Cross-Origin Resource Sharing (CORS)
-origins = [
-    "http://localhost",
-    "http://localhost:5173",  # example frontend
-    "http://peec.harora.lol"  # replace with your frontend domain
-    "https://peec.harora.lol"  # replace with your frontend domain
-]
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=origins,  # Allows specified origins
-    allow_credentials=True,
-    allow_methods=["*"],  # Allows all methods (GET, POST, PUT, etc.)
-    allow_headers=["*"],  # Allows all headers
-)
 
 # Dummy data
 data = {
