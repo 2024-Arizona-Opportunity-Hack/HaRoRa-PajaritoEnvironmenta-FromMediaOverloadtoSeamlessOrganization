@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 import uuid
 import imghdr
+import json
 from queue import Queue
 
 app = FastAPI()
@@ -42,7 +43,7 @@ def validate_image(file: UploadFile):
 
 
 @app.post("/upload")
-async def upload_images(files: List[UploadFile] = File(...), tags: str = Form(...)) -> dict:
+async def upload_images(files: List[UploadFile] = File(...), tags: str | None = Form(...)) -> dict:
     uploaded_files: List[dict] = []
     for file in files:
         try:
@@ -98,8 +99,8 @@ async def search_files(query: str = None):
       coords = None
       distance_radius = None
 
-    query_embedding = get_text_embedding(query)
-    results = get_search_query_result(
+    query_embedding = image_processor.get_text_embedding(query)
+    results = db.get_search_query_result(
       query,
       query_embedding,
       search_args.season,
@@ -150,7 +151,7 @@ def process_file(file_path: str):
   # Simulate file processing delay
   url = file_path # TODO: change to dropbox url 
 
-  # get title, caption and tags
+  print('Getting title, caption, and tags ...')
   while True:
     img_details = image_processor.get_image_captioning(file_path)
     if img_details is None:
@@ -161,7 +162,7 @@ def process_file(file_path: str):
     tags = ','.join(img_details['tags'])
     break
 
-  # trying to get image embedding
+  print('Getting image embeddings ...')
   while True:
     embedding_vector = image_processor.get_image_embedding(file_path)
     if embedding_vector is None:
@@ -170,38 +171,32 @@ def process_file(file_path: str):
     break
 
   # extract_image_metadata
+  print('Extracting metadata from image ...')
   img_metadata = image_processor.extract_image_metadata(file_path)
-  # TODO: how to pass lat lon?
-  lat = img_metadata['latitude']
-  long = img_metadata['longitude']
-  if lat is None or long is None:
-    coords = None
-  else:
-    coords = [lat, long] # TODO: 
+  coords = None
+  capture_time_str = None
+  season = None
+  if img_metadata:
+    lat = img_metadata.get('latitude', None)
+    long = img_metadata.get('longitude', None)
+    if lat is not None and long is not None: coords = [lat, long]
 
-  capture_time = img_metadata['capture_date']
-  if capture_time is not None:
-    capture_time = datetime.strptime(capture_time, "%Y:%m:%d %H:%M:%S")
-    capture_time_str = dt.strftime("%d/%m/%Y")
-    # based on month get season as either summer, fall, winter, spring
-    month = capture_time.month
-    if month in [12, 1, 2]:
-      season = 'winter'
-    elif month in [3, 4, 5]:
-      season = 'spring'
-    elif month in [6, 7, 8]:
-      season = 'summer'
-    else:
-      season = 'fall'
-  else:
-    capture_time_str = None
-    season = None
+    capture_time = img_metadata['capture_date']
+    if capture_time is not None:
+      capture_time = datetime.strptime(capture_time, "%Y:%m:%d %H:%M:%S")
+      capture_time_str = dt.strftime("%d/%m/%Y")
+      # based on month get season as either summer, fall, winter, spring
+      month = capture_time.month
+      if month in [12, 1, 2]: season = 'winter'
+      elif month in [3, 4, 5]: season = 'spring'
+      elif month in [6, 7, 8]: season = 'summer'
+      else: season = 'fall'
   img_details = db.insert(
     url=url,
     title=title,
     caption=caption,
     tags=tags,
-    embedding_vector=embedding_vector,
+    embedded_vector=embedding_vector,
     coordinates=coords,
     capture_time=capture_time_str,
     extended_meta=json.dumps(img_metadata) if img_metadata else None,

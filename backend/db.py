@@ -88,7 +88,8 @@ def get_search_query_result(conn,
                 where_clause_sql += " AND"
             where_clause_sql += " capture_time <= '{}'".format(date_to)
 
-        return "" if where_clause_sql == " WHERE" else where_clause_sql
+        #return "" if where_clause_sql == " WHERE" else where_clause_sql
+        return ''
 
     search_query_with_part = f"""
     with fts_ranked_title_caption_tags as (
@@ -114,9 +115,20 @@ def get_search_query_result(conn,
     limit least({match_count}, 30) *2
     )"""
 
-    search_query_select_part = f"""
+
+    search_query_select_part = """
     select
-        image_detail. *
+        image_detail.url,
+        image_detail.title,
+        image_detail.caption,
+        image_detail.tags,
+        image_detail.coordinates,
+        image_detail.capture_time,
+        image_detail.extended_meta,
+        image_detail.season,
+        image_detail.uuid,
+        image_detail.updated_at,
+        image_detail.created_at
     from
         fts_ranked_title_caption_tags
             full outer join semantic
@@ -133,13 +145,16 @@ def get_search_query_result(conn,
             desc
     limit
         least({}, 30)""".format(rrf_k, full_text_weight, rrf_k, semantic_weight, match_count)
+
     search_query = (search_query_with_part + search_query_select_part + search_query_where_part +
                     search_query_order_by_limit_part)
 
     with conn.cursor() as cur:
         cur.execute(sql.SQL(search_query))
         result = cur.fetchall()
+        print(result)
         return [data_models.ImageDetailResult(*x) for x in result] if result else None
+
 
 
 @with_connection
@@ -153,7 +168,6 @@ def insert(conn,
            capture_time: Optional[str] = None,
            extended_meta: Optional[str] = None,
            season: Optional[str] = None):
-    cursor = conn.cursor()
     entry = (
         str(uuid.uuid4()),
         url,
@@ -162,8 +176,8 @@ def insert(conn,
         tags,
         embedded_vector,
         f"POINT({coordinates[0]} {coordinates[1]})" if coordinates is not None else None,
-        capture_time if capture_time is not None else None,
-        extended_meta if extended_meta is not None else "",
+        capture_time,
+        extended_meta,
         season
     )
     insert_query = """
@@ -171,14 +185,8 @@ def insert(conn,
                    uuid, url, title, caption, tags, embedding_vector, coordinates, capture_time, extended_meta, season
                ) VALUES (%s, %s, %s, %s, %s, %s::float8[], ST_GeomFromText(%s), to_timestamp(%s, 'DD/MM/YYYY'), %s::json, %s)
            """
-    try:
-        cursor.execute(insert_query, entry)
-        conn.commit()
+    with conn.cursor() as cur:
+        cur.execute(insert_query, entry)
 
-    except Exception as error:
-        print(f"Error inserting data: {error}")
-    finally:
-        if conn:
-            cursor.close()
-        conn.close()
-
+if __name__ == '__main__':
+    create_tables()
