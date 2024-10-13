@@ -3,6 +3,48 @@ import axios from 'axios';
 // Set the base URL for Axios
 axios.defaults.baseURL = 'http://localhost:8080'; // Update this to your backend URL
 
+// Auth
+// get profile info
+export const getProfileInfo = async () => {
+  try {
+    const response = await axios.get('/api/profile');
+    return { response: response.data, err: null };
+  } catch (error) {
+    console.log(error);
+    if (error.response && error.response.status === 401) {
+      return { response: null, err: 'Please login with Dropbox' };
+    } else {
+      return { response: null, err: 'Error: ' + error.message };
+    }
+  }
+};
+
+// login
+export const handleLogin = async () => {
+  try {
+    const response = await axios.get('/api/login');
+    const authUrl = response.data.auth_url;
+    window.location.href = authUrl;
+  } catch (error) {
+    console.error('Error:', error);
+  }
+};
+
+//logout
+export const  handleLogout = async () => {
+  axios.get('/api/logout')
+          .then(response => {
+            setProfile(null);
+            setError(null);
+          })
+          .catch(error => {
+            console.log(error)
+            setError('Error: ' + error.message);
+          })
+}
+
+
+
 // Upload files to the server
 export const uploadFiles = async (files, tags) => {
   const formData = new FormData();
