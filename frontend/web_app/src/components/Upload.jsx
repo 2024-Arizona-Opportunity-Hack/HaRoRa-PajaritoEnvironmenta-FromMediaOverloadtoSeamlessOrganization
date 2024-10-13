@@ -1,6 +1,6 @@
 // src/components/Upload.jsx
 import { useState } from 'react';
-import { uploadFiles } from '../api/backup';
+import { uploadFiles } from '../api/api';
 import { useDropzone } from 'react-dropzone';
 
 function Upload() {

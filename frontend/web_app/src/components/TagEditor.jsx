@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { getTags, updateTags } from '../api/backup';
+import { getTags, updateTags } from '../api/api';
 
 function TagEditor({ uuid, onClose }) {
   const [tags, setTags] = useState('');
