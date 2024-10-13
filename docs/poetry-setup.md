@@ -5,3 +5,5 @@
 -   `poetry config virtualenvs.in-project true`
 -   `poetry shell`
 -   `poetry install`
+
+-   do `poetry shell` to activate virtual environments
