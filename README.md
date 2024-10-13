@@ -16,7 +16,7 @@ Cloud-based solution with AI-driven tagging, content-based search, and integrati
 -   [DevPost project](https://devpost.com/software/image-search-and-tagging-tool)
 -   Demo video
 -   [Presentation Deck](https://www.canva.com/design/DAGTelmxTQg/Zw9Lq4hmFJxN9nN0FUpgdQ/edit?utm_content=DAGTelmxTQg&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton)
-
+-   [User Documentation](https://github.com/2024-Arizona-Opportunity-Hack/HaRoRa-PajaritoEnvironmenta-FromMediaOverloadtoSeamlessOrganization/blob/main/User%20Documentation.pdf)
 ## Problem Statement
 
 Our project aims to streamline and automate efficient media organization using AI. The solution uses content-based image retrieval (CBIR) to automatically tag and organize photos, making it easy to find specific images based on visual content, metadata, and custom tags. The system is integrate with cloud storage, providing a simple interface for uploading, searching, and sharing media files while ensuring robust backup and file management. The ultimate goal is to:
