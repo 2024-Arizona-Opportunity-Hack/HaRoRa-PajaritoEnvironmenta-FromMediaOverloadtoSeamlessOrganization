@@ -150,8 +150,6 @@ def get_search_query_result(conn,
     search_query = (search_query_with_part + search_query_select_part + search_query_where_part +
                     search_query_order_by_limit_part)
     print(search_query)
-    import pyperclip
-    pyperclip.copy(search_query)
 
     with conn.cursor() as cur:
         cur.execute(sql.SQL(search_query))

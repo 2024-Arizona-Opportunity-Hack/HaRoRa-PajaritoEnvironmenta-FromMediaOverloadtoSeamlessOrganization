@@ -2,7 +2,6 @@ import io
 import os
 import json
 import base64
-import replicate
 from PIL.ExifTags import TAGS, GPSTAGS
 from PIL import Image
 from typing import List
