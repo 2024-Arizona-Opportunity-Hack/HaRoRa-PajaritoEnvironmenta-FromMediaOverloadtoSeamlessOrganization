@@ -1,20 +1,31 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException, Form
-from fastapi.middleware.cors import CORSMiddleware
-from typing import List
+# main.py
+
+import os
 import uuid
 import imghdr
 import json
 from queue import Queue
+import requests
+from typing import List
+from urllib.parse import urlencode
 
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form, Request, Depends
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.middleware.sessions import SessionMiddleware
+from starlette.responses import HTMLResponse, RedirectResponse
+
+# Initialize the FastAPI app
 app = FastAPI()
 file_queue = Queue()
 
 # Allow Cross-Origin Resource Sharing (CORS)
 origins = [
     "http://localhost",
-    "http://localhost:5173",  # example frontend
-    "http://peec.harora.lol"  # replace with your frontend domain
-    "https://peec.harora.lol"  # replace with your frontend domain
+    "http://localhost:5173",
+    "http://peec.harora.lol",
+    "https://peec.harora.lol",
+    "http://127.0.0.1:5173",
+    "https://www.dropbox.com",
 ]
 
 app.add_middleware(
@@ -25,11 +36,21 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
-# Dummy data
+# Add session middleware for handling sessions
+app.add_middleware(
+    SessionMiddleware, secret_key=os.environ['FASTAPI_SESSION_SECRET_KEY']
+)
+
+# Dummy data storage
 data = {
     "files": [],
-    "tags": {}
+    "tags": {},
 }
+
+# Dropbox OAuth Configuration
+AUTH_URI = "https://www.dropbox.com/oauth2/authorize"
+TOKEN_URI = "https://api.dropboxapi.com/oauth2/token"
+CLIENT_URL = 'http://localhost:5173'  # Update with your client URL
 
 # Helper function to validate image file types
 def validate_image(file: UploadFile):
@@ -40,10 +61,90 @@ def validate_image(file: UploadFile):
         raise HTTPException(status_code=400, detail="Invalid image format")
     return file_type
 
+# === Dropbox Integration Routes ===
 
+@app.get('/login')
+async def login(request: Request):
+    redirect_uri = request.url_for('auth_dropbox_callback')
+    auth_params = {
+        "client_id": os.environ['DROPBOX_CLIENT_ID'],
+        "redirect_uri": redirect_uri,
+        "response_type": "code",
+        "token_access_type": "offline",
+    }
+    auth_url = f"{AUTH_URI}?{urlencode(auth_params)}"
+    return {'auth_url': auth_url}
+
+@app.get('/auth/dropbox/callback')
+async def auth_dropbox_callback(request: Request):
+    auth_code = request.query_params.get('code')
+    if not auth_code:
+        return HTMLResponse('<h1>Authorization code not found</h1>', status_code=400)
+    redirect_uri = request.url_for('auth_dropbox_callback')
+    try:
+        token_data = {
+            "code": auth_code,
+            "grant_type": "authorization_code",
+            "client_id": os.environ['DROPBOX_CLIENT_ID'],
+            "client_secret": os.environ['DROPBOX_CLIENT_SECRET'],
+            "redirect_uri": redirect_uri,
+        }
+        token_response = requests.post(TOKEN_URI, data=token_data)
+        token_response_data = token_response.json()
+
+        access_token = token_response_data['access_token']
+        refresh_token = token_response_data.get('refresh_token')
+
+        # Fetch user information
+        user_info_response = requests.post(
+            'https://api.dropboxapi.com/2/users/get_current_account',
+            headers={'Authorization': f'Bearer {access_token}'}
+        )
+        user_info = user_info_response.json()
+
+        request.session['user'] = {
+            'name': user_info['name']['display_name'],
+            'email': user_info['email'],
+            'account_id': user_info['account_id'],
+            'access_token': access_token,
+            'refresh_token': refresh_token,
+        }
+
+    except Exception as error:
+        return HTMLResponse(f'<h1>{error}</h1>', status_code=500)
+
+    # Redirect to client URL after successful authentication
+    return RedirectResponse(CLIENT_URL)
+
+@app.get('/logout')
+async def logout(request: Request):
+    request.session.clear()
+    return RedirectResponse(url='/', status_code=302)
+
+@app.get('/profile')
+async def profile(request: Request):
+    user = request.session.get('user')
+    if not user:
+        raise HTTPException(status_code=401, detail='Unauthorized')
+    return {'name': user['name'], 'email': user['email'], 'account_id': user['account_id']}
+
+# === Protected Routes ===
+
+def get_current_user(request: Request):
+    user = request.session.get('user')
+    if not user:
+        raise HTTPException(status_code=401, detail='Unauthorized')
+    return user
+
+# === Media Management Routes ===
 
 @app.post("/upload")
-async def upload_images(files: List[UploadFile] = File(...), tags: str | None = Form(...)) -> dict:
+async def upload_images(
+    request: Request,
+    files: List[UploadFile] = File(...),
+    tags: str = Form(...)
+):
+    user = get_current_user(request)
     uploaded_files: List[dict] = []
     for file in files:
         try:
@@ -52,8 +153,15 @@ async def upload_images(files: List[UploadFile] = File(...), tags: str | None = 
             return e.detail
 
         file_id: str = str(uuid.uuid4())
-        file_data: dict = {"id": file_id, "name": file.filename, "type": file_type, "tags": tags}
+        file_data: dict = {
+            "id": file_id,
+            "name": file.filename,
+            "type": file_type,
+            "tags": tags.split(","),
+            "owner": user['account_id'],
+        }
         data["files"].append(file_data)
+<<<<<<< HEAD
         uploaded_files.append({"file_id": file_id, "name": file.filename, "type": file_type, "tags": tags})
 
         # store the file in /tmp dir
@@ -123,19 +231,41 @@ async def search_files(q: str = None):
     return {"results": results}
   else:
     return {"results": []}
+=======
+        uploaded_files.append(file_data)
 
-# GET /tag/{uuid}
+    return {"message": "Images uploaded successfully", "uploaded_files": uploaded_files}
+
+@app.get("/search")
+async def search_files(request: Request, query: str = None):
+    user = get_current_user(request)
+    user_files = [file for file in data["files"] if file["owner"] == user['account_id']]
+    if query:
+        result = [file for file in user_files if query.lower() in file["name"].lower()]
+    else:
+        result = user_files
+    return {"results": result}
+>>>>>>> 6e41c24 (stash)
+
 @app.get("/tag/{file_id}")
-async def get_tags(file_id: str):
-    tags = data["tags"].get(file_id, [])
+async def get_tags(request: Request, file_id: str):
+    user = get_current_user(request)
+    file = next((f for f in data["files"] if f["id"] == file_id and f["owner"] == user['account_id']), None)
+    if not file:
+        raise HTTPException(status_code=404, detail="File not found")
+    tags = file.get("tags", [])
     return {"file_id": file_id, "tags": tags}
 
-# PUT /tag/{uuid}
 @app.put("/tag/{file_id}")
-async def update_tags(file_id: str, tags: List[str]):
-    data["tags"][file_id] = tags
+async def update_tags(request: Request, file_id: str, tags: List[str] = Form(...)):
+    user = get_current_user(request)
+    file = next((f for f in data["files"] if f["id"] == file_id and f["owner"] == user['account_id']), None)
+    if not file:
+        raise HTTPException(status_code=404, detail="File not found")
+    file["tags"] = tags
     return {"message": "Tags updated successfully", "file_id": file_id, "tags": tags}
 
+# === Main Entry Point ===
 
 # ===
 # File Processing
@@ -224,5 +354,4 @@ threading.Thread(target=file_processor, daemon=True).start()
 
 if __name__ == '__main__':
     import uvicorn
-    uvicorn.run('api:app', host='localhost', port=8080, reload=True)
-
+    uvicorn.run('main:app', host='localhost', port=8080, reload=True)
