@@ -1,4 +1,4 @@
-from fastapi import FastAPI, File, UploadFile, HTTPException
+from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.middleware.cors import CORSMiddleware
 from typing import List
 import uuid
@@ -37,22 +37,21 @@ def validate_image(file: UploadFile):
         raise HTTPException(status_code=400, detail="Invalid image format")
     return file_type
 
-# POST /upload (Batch upload for images)
+
+
 @app.post("/upload")
-async def upload_images(files: List[UploadFile] = File(...)):
-    uploaded_files = []
+async def upload_images(files: List[UploadFile] = File(...), tags: str = Form(...)) -> dict:
+    uploaded_files: List[dict] = []
     for file in files:
-        # Validate the file is an image
         try:
-            file_type = validate_image(file)
+            file_type: str = validate_image(file)
         except HTTPException as e:
             return e.detail
 
-        # Create a unique file ID and save the image details
-        file_id = str(uuid.uuid4())
-        file_data = {"id": file_id, "name": file.filename, "type": file_type}
+        file_id: str = str(uuid.uuid4())
+        file_data: dict = {"id": file_id, "name": file.filename, "type": file_type, "tags": tags}
         data["files"].append(file_data)
-        uploaded_files.append({"file_id": file_id, "name": file.filename, "type": file_type})
+        uploaded_files.append({"file_id": file_id, "name": file.filename, "type": file_type, "tags": tags})
     
     return {"message": "Images uploaded successfully", "uploaded_files": uploaded_files}
 
