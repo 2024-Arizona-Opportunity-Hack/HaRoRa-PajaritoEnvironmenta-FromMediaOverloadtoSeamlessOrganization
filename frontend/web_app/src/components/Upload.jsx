@@ -73,7 +73,7 @@ function Upload() {
         )}
       </div>
 
-      {/* Tags Input 
+      {/* Tags Input */}
     
       <div className="mt-6">
         <label className="block text-gray-700 text-sm font-bold mb-2">
@@ -86,7 +86,7 @@ function Upload() {
           value={tags}
           onChange={(e) => setTags(e.target.value)}
         />
-      </div>*/}
+      </div>
 
       {/* Upload Button */}
       <button className="btn btn-primary mt-6 w-full" onClick={handleUpload}>
