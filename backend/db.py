@@ -61,7 +61,7 @@ def get_search_query_result(conn,
                             full_text_weight: Optional[float] = 1,
                             semantic_weight: Optional[float] = 1,
                             rrf_k: Optional[int] = 50) -> Optional[
-    List[data_models.ImageDetail]]:
+    List[data_models.ImageDetailResult]]:
     def get_where_clause_part(season: Optional[str],
                               tags: Optional[list[str]], coordinates: Optional[list[float]],
                               distance_radius: Optional[float], date_from: Optional[str],
@@ -139,11 +139,7 @@ def get_search_query_result(conn,
     with conn.cursor() as cur:
         cur.execute(sql.SQL(search_query))
         result = cur.fetchall()
-        print(result)
-        # print(data_models.ImageDetail(*result))
-    if result:
-        return data_models.ImageDetail(*result)
-    return None
+        return [data_models.ImageDetailResult(*x) for x in result] if result else None
 
 
 @with_connection
