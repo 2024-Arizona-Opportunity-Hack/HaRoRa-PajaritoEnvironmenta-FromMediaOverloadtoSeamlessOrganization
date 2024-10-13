@@ -26,6 +26,10 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+
+CREATE TRIGGER update_updated_at BEFORE UPDATE ON image_detail
+    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
 -- Index creation for searching on coordinates
 CREATE INDEX CONCURRENTLY idx_image_detail_coordinates ON image_detail USING GIST (coordinates);
 
