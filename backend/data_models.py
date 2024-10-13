@@ -8,10 +8,9 @@ class ImageDetail:
     title: str
     caption: str  # scipdf gives authors in ';' separated string
     tags: str
-    title_caption_tags_fts_vector: str
     coordinates: List[float] | None
-    capture_time: str | None
-    extended_meta: dict | None
+    capture_time: str | None  # dd/mm/yyyy
+    extended_meta: str | None
     season: str | None
 
 class ImageDetailIn(ImageDetail):

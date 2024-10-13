@@ -163,12 +163,13 @@ def insert(conn,
         embedded_vector,
         f"POINT({coordinates[0]} {coordinates[1]})" if coordinates is not None else None,
         capture_time if capture_time is not None else None,
-        extended_meta if extended_meta is not None else ""
+        extended_meta if extended_meta is not None else "",
+        season
     )
     insert_query = """
                INSERT INTO image_detail (
-                   uuid, url, title, caption, tags, embedding_vector, coordinates, capture_time, extended_meta
-               ) VALUES (%s, %s, %s, %s, %s, %s::float8[], ST_GeomFromText(%s), %s, %s::json)
+                   uuid, url, title, caption, tags, embedding_vector, coordinates, capture_time, extended_meta, season
+               ) VALUES (%s, %s, %s, %s, %s, %s::float8[], ST_GeomFromText(%s), to_timestamp(%s, 'DD/MM/YYYY'), %s::json, %s)
            """
     try:
         cursor.execute(insert_query, entry)
