@@ -44,7 +44,6 @@ export const  handleLogout = async () => {
 }
 
 
-
 // Upload files to the server
 export const uploadFiles = async (files, tags) => {
   const formData = new FormData();
