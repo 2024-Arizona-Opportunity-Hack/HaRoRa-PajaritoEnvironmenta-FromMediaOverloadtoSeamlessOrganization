@@ -31,10 +31,10 @@ CREATE TRIGGER update_updated_at BEFORE UPDATE ON image_detail
     FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Index creation for searching on coordinates
-CREATE INDEX CONCURRENTLY idx_image_detail_coordinates ON image_detail USING GIST (coordinates);
+CREATE INDEX idx_image_detail_coordinates ON image_detail USING GIST (coordinates);
 
 -- Index creation for searching on the embedding vector
 -- This assumes the use of the pgvector extension or a similar extension
-CREATE INDEX CONCURRENTLY idx_image_detail_embedding ON image_detail USING hnsw (embedding_vector);
+CREATE INDEX idx_image_detail_embedding ON image_detail USING hnsw (embedding_vector vector_ip_ops);
 
 

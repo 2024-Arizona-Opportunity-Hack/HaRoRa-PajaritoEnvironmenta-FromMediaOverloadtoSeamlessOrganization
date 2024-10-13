@@ -8,15 +8,16 @@ class ImageDetail:
     title: str
     caption: str  # scipdf gives authors in ';' separated string
     tags: str
-    title_caption_tags_fts_vector: str
     coordinates: List[float] | None
-    capture_time: str | None
-    extended_meta: dict | None
+    capture_time: str | None  # dd/mm/yyyy
+    extended_meta: str | None
     season: str | None
 
+@dataclasses.dataclass
 class ImageDetailIn(ImageDetail):
     embedding_vector: List[float]
 
+@dataclasses.dataclass
 class ImageDetailResult(ImageDetail):
     uuid: str  # sub = user_id = primary key?
     updated_at: str
