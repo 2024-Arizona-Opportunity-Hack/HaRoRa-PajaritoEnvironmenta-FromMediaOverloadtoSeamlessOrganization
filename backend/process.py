@@ -54,11 +54,11 @@ def get_vision_response(prompt: str, image_path: str):
                     "image_url": { "url": resize_and_encode_image(image_path) },
                 })
         response = structured_llm_output.run(
-            model="meta-llama/Llama-3.2-11B-Vision-Instruct-Turbo",
+            model="gpt-4o-mini",
             messages=messages,
             max_retries=3,
             response_model=ImageData,
-            temp=0.7
+            temp=0.8
         )
 
         result = json.loads(response.model_dump_json())
