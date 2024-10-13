@@ -1,8 +1,9 @@
 import io
 import os
+import json
 import base64
 import replicate
-from PIL.ExifTags import TAGS
+from PIL.ExifTags import TAGS, GPSTAGS
 from PIL import Image
 from typing import List
 from together import Together
@@ -52,20 +53,16 @@ def get_vision_response(prompt: str, image_path: str):
                     "type": "image_url",
                     "image_url": { "url": f"data:image/jpeg;base64,{resize_and_encode_image(image_path)}" },
                 })
-
-        # response = client.chat.completions.create(
-        #     model="meta-llama/Llama-3.2-90B-Vision-Instruct-Turbo",
-        #     temperature=0.3,
-        #     messages=messages)
-        # result = response.choices[0].message.content
         response = structured_llm_output.run(
             model="meta-llama/Llama-3.2-90B-Vision-Instruct-Turbo",
             messages=messages,
             max_retries=3,
             response_model=ImageData,
+            temp=0.7
         )
 
-        return response.json()
+        result = json.loads(response.model_dump_json())
+        return result
     except Exception as e:
         print(e)
 
@@ -92,30 +89,84 @@ def get_image_captioning(image_path: str):
        ).format()
     
     response = get_vision_response(prompt=prompt, image_path=image_path)
+    return response
   except Exception as e:
     print(e)
-  
-def extract_image_metadata(image_path):
-    # Open the image file
-    with Image.open(image_path) as img:
-        # Extract EXIF data
-        exif_data = img._getexif()
-        
-        # If there's no EXIF data, return empty
-        if exif_data is None:
-            return "No EXIF metadata found"
-        
-        # Create a dictionary to store metadata
-        metadata = {}
-        
-        # Loop through all EXIF tags and convert them to readable tags
-        for tag, value in exif_data.items():
-            tag_name = TAGS.get(tag, tag)
-            metadata[tag_name] = value
-        
-        return metadata
+
+def get_exif_data(image_path):
+    """Extract EXIF data from an image."""
+    image = Image.open(image_path)
+    exif_data = image._getexif()  # Retrieve EXIF data
+
+    if exif_data is None:
+        return None
+
+    exif = {}
+    for tag, value in exif_data.items():
+        tag_name = TAGS.get(tag, tag)
+        exif[tag_name] = value
+
+    return exif
+
+def get_gps_info(exif):
+    """Extract GPS information from EXIF data."""
+    gps_info = {}
+    if 'GPSInfo' in exif:
+        for key in exif['GPSInfo'].keys():
+            decode = GPSTAGS.get(key, key)
+            gps_info[decode] = exif['GPSInfo'][key]
+
+        # Convert latitude and longitude to decimal degrees
+        if 'GPSLatitude' in gps_info and 'GPSLongitude' in gps_info:
+            lat_ref = gps_info.get('GPSLatitudeRef')
+            lon_ref = gps_info.get('GPSLongitudeRef')
+
+            lat = convert_to_degrees(gps_info['GPSLatitude'])
+            lon = convert_to_degrees(gps_info['GPSLongitude'])
+
+            if lat_ref != 'N':  # South latitudes are negative
+                lat = -lat
+            if lon_ref != 'E':  # West longitudes are negative
+                lon = -lon
+
+            gps_info['Latitude'] = lat
+            gps_info['Longitude'] = lon
+
+    return gps_info
+
+def convert_to_degrees(value):
+    """Convert the GPS coordinates stored as (degrees, minutes, seconds) into decimal degrees."""
+    d, m, s = value
+    return d + (m / 60.0) + (s / 3600.0)
+
+def extract_image_metadata(image_path: str):
+    """Extract metadata including latitude, longitude, and capture date."""
+    img_metadata = {}
+    exif_data = get_exif_data(image_path)
+    if not exif_data:
+        print("No EXIF metadata found.")
+        return
+
+    img_metadata['capture_date'] = exif_data.get('DateTimeOriginal', None)
+
+    gps_info = get_gps_info(exif_data)
+
+    
+    if gps_info:
+        img_metadata['latitude'] = gps_info.get('Latitude', None)
+        img_metadata['longitude'] = gps_info.get('Longitude', None)
+    else:
+        print("No GPS information found.")
+
+    print("Other EXIF metadata:")
+    for key, value in exif_data.items():
+        img_metadata[key] = value
+    
+    return img_metadata
 
 if __name__ == "__main__":
-    extract_image_metadata("/Users/saurabh/Downloads/DSC01280 (1).jpg")
-#   get_image_captioning("/Users/saurabh/Downloads/PEECJillian_photo.jpg")
-  #get_image_captioning("https://www.dropbox.com/sh/34kuc:re3kg4bes/AACDsAS8URMseqXl1JrXqy84a/2017/_FINAL-2017Nov18-SmallFryProspectMine-WithPatrickRowe-PHOTOS-From-Dave-Schiferl?e=2&preview=_DSC6125-Small-Fry-Prospect-Mine-Searching-For-Fluorite.JPG&st=5n2irk4w&subfolder_nav_tracking=1&dl=0")
+    image_path = "/Users/saurabh/AA/divergent/ASU Graduation Ceremony/IMG_7918.JPG"
+    dropbox_img_path = "https://www.dropbox.com/sh/34kuc:re3kg4bes/AACDsAS8URMseqXl1JrXqy84a/2017/_FINAL-2017Nov18-SmallFryProspectMine-WithPatrickRowe-PHOTOS-From-Dave-Schiferl?e=2&preview=_DSC6125-Small-Fry-Prospect-Mine-Searching-For-Fluorite.JPG&st=5n2irk4w&subfolder_nav_tracking=1&dl=0"
+    # print(get_image_captioning(image_path))
+    print(extract_image_metadata(image_path))
+    # get_image_captioning(dropbox_img_path)
