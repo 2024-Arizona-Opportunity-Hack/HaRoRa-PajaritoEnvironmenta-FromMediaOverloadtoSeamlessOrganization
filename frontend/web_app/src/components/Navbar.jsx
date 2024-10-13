@@ -1,20 +1,37 @@
-// components/Navbar.jsx
+// src/components/Navbar.jsx
 import { Link } from 'react-router-dom';
+import { useState } from 'react';
 
 function Navbar() {
+  const [theme, setTheme] = useState('light');
+
+  const handleThemeChange = (e) => {
+    setTheme(e.target.value);
+    document.documentElement.setAttribute('data-theme', e.target.value);
+  };
+
   return (
     <nav className="bg-base-100 shadow">
       <div className="container mx-auto px-4 py-2 flex justify-between items-center">
-        <Link to="/" className="text-xl font-bold">
+        <Link to="/" className="text-2xl font-bold text-primary">
           Media Manager
         </Link>
-        <div>
-          <Link to="/" className="btn btn-ghost">
+        <div className="flex items-center space-x-4">
+          <Link to="/" className="btn btn-outline btn-primary">
             Upload
           </Link>
-          <Link to="/search" className="btn btn-ghost">
+          <Link to="/search" className="btn btn-outline btn-primary">
             Search
           </Link>
+          <select
+            className="select select-bordered"
+            value={theme}
+            onChange={handleThemeChange}
+          >
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+
+          </select>
         </div>
       </div>
     </nav>

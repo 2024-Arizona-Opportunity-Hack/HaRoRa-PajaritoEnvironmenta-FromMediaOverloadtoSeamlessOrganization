@@ -1,3 +1,4 @@
+// src/components/Search.jsx
 import { useState } from 'react';
 import { searchMedia } from '../api/api';
 import TagEditor from './TagEditor';
@@ -51,8 +52,8 @@ function Search() {
 
       {/* Search Results */}
       {!loading && results.length > 0 && (
-        <div className="mt-4 grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-4">
-          {results.map((item) => (
+        <div className="mt-4 grid grid-cols-3 gap-4">
+          {results.slice(0, 9).map((item) => (
             <div key={item.id} className="card bg-base-100 shadow-md">
               <figure>
                 <img
@@ -62,13 +63,13 @@ function Search() {
                 />
               </figure>
               <div className="card-body">
-                <h2 className="card-title">{item.filename}</h2>
-                <p className="text-sm text-gray-600">
+                <h2 className="card-title text-sm">{item.filename}</h2>
+                <p className="text-xs text-gray-600">
                   Tags: {item.tags.join(', ')}
                 </p>
                 <div className="card-actions justify-end">
                   <button
-                    className="btn btn-sm btn-outline"
+                    className="btn btn-xs btn-outline"
                     onClick={() => setSelectedUuid(item.id)}
                   >
                     Edit Tags
