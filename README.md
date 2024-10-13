@@ -15,6 +15,7 @@ Cloud-based solution with AI-driven tagging, content-based search, and integrati
 -   [Team slack channel](https://opportunity-hack.slack.com/archives/C07RLQUHRR8)
 -   [DevPost project](https://devpost.com/software/image-search-and-tagging-tool)
 -   Demo video
+-   [Presentation Deck](https://www.canva.com/design/DAGTelmxTQg/Zw9Lq4hmFJxN9nN0FUpgdQ/edit?utm_content=DAGTelmxTQg&utm_campaign=designshare&utm_medium=link2&utm_source=sharebutton)
 
 ## Problem Statement
 
@@ -29,11 +30,20 @@ Our project aims to streamline and automate efficient media organization using A
 
 | Purpose  | Technologies        |
 | -------- | ------------------- |
-| Frontend | ReactJs, JavaScript |
-| Backend  | Python, FastAPI     |
+| Frontend | ReactJs(JavaScript) |
+| Backend  | FastAPI(Python)     |
 | Cloud    | AWS                 |
 | Database | Postgres            |
 | APIs     | Dropbox             |
+| AI Model | Llama-3.1, CLIP     |
+
+## Rest APIs
+
+![Rest APIs developed by team harora](./docs/resources/rest_apis.jpeg)
+
+## Database Schema
+
+![Database Schema](./docs/resources/peec_db.png)
 
 ## Getting Started
 
@@ -50,13 +60,22 @@ Examples of stellar readmes:
 
 ## Inspiration
 
+We have seen many application which provide cloud based standard solution but it's pricing and setup might not be suitable for NPO and non-technical people. and this standardized solution are all-purpose solution but NPO's have very niche and pecuilare usecase which with certain trade-off like using open source model to reduce cost of infrastructure and model calling
+
 ## What it does
 
 ## How we built it
 
 ## Challenges we ran into
 
-## Accomplishments that we're proud of
+## Accomplishments that we're proud of covering following things
+
+-   [x] P0
+-   [x] manual tagging
+-   [x] Cloud
+-   [x] Hosted
+-   [x] Auth
+-   [x] Dropbox integration
 
 ## What we learned
 
