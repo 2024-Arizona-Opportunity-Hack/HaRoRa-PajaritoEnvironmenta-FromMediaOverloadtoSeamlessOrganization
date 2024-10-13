@@ -7,7 +7,7 @@ axios.defaults.baseURL = 'https://peec.harora.lol/api'; // Update this to your b
 // get profile info
 export const getProfileInfo = async () => {
   try {
-    const response = await axios.get('/api/profile');
+    const response = await axios.get('/profile');
     return { response: response.data, err: null };
   } catch (error) {
     console.log(error);
@@ -22,7 +22,7 @@ export const getProfileInfo = async () => {
 // login
 export const handleLogin = async () => {
   try {
-    const response = await axios.get('/api/login');
+    const response = await axios.get('/login');
     const authUrl = response.data.auth_url;
     window.location.href = authUrl;
   } catch (error) {
@@ -32,7 +32,7 @@ export const handleLogin = async () => {
 
 //logout
 export const  handleLogout = async () => {
-  axios.get('/api/logout')
+  axios.get('/logout')
           .then(response => {
             setProfile(null);
             setError(null);
