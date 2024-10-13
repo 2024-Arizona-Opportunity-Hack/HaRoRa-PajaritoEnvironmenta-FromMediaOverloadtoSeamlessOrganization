@@ -1,6 +1,8 @@
+
+
 // components/Upload.jsx
 import { useState } from 'react';
-import axios from 'axios';
+import { uploadFiles } from '../api/api';
 
 function Upload() {
   const [files, setFiles] = useState([]);
@@ -11,13 +13,14 @@ function Upload() {
   };
 
   const handleUpload = async () => {
-    const formData = new FormData();
-    files.forEach((file) => formData.append('files', file));
-    formData.append('tags', tags);
-
-    // Make an API call to upload files
-    // Replace '/upload' with your actual upload endpoint
-    await axios.post('/upload', formData);
+    try {
+      await uploadFiles(files, tags);
+      alert('Files uploaded successfully!');
+      setFiles([]);
+      setTags('');
+    } catch (error) {
+      alert('Error uploading files.');
+    }
   };
 
   return (
