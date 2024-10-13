@@ -13,9 +13,11 @@ class ImageDetail:
     extended_meta: str | None
     season: str | None
 
+@dataclasses.dataclass
 class ImageDetailIn(ImageDetail):
     embedding_vector: List[float]
 
+@dataclasses.dataclass
 class ImageDetailResult(ImageDetail):
     uuid: str  # sub = user_id = primary key?
     updated_at: str

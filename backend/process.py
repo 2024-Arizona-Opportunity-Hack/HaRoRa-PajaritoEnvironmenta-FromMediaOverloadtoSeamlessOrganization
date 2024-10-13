@@ -3,7 +3,6 @@ import os
 import json
 import base64
 from urllib.parse import urlparse, urlunparse
-import replicate
 from PIL.ExifTags import TAGS, GPSTAGS
 from PIL import Image
 from typing import List
@@ -17,7 +16,7 @@ import structured_llm_output
 class ImageData(BaseModel):
     title: str = Field(desc="Short filename-like title describing the image content")
     image_description: str = Field(desc="One-line caption describing what the image is about")
-    tags: List[str] = Field(desc="List of concise tags for image retrieval, including objects, actions, settings, seasons, locations, image type, text, and distinctive features", max_length=10)
+    tags: List[str] = Field(desc="List of concise tags for image retrieval, including objects, actions, settings, seasons, locations, image type, text, and distinctive features", max_length=20)
     class Config:
         schema_extra = {
             "example": {
@@ -86,7 +85,7 @@ def get_vision_response(prompt: str, image_path: str):
                     "image_url": { "url": f"data:image/jpeg;base64,{resize_and_encode_image(image_path)}" },
                 })
         response = structured_llm_output.run(
-            model="meta-llama/Llama-3.2-90B-Vision-Instruct-Turbo",
+            model="meta-llama/Llama-3.2-11B-Vision-Instruct-Turbo",
             messages=messages,
             max_retries=3,
             response_model=ImageData,
@@ -201,10 +200,6 @@ def extract_image_metadata(image_path: str):
         img_metadata['longitude'] = gps_info.get('Longitude', None)
     else:
         print("No GPS information found.")
-
-    print("Other EXIF metadata:")
-    for key, value in exif_data.items():
-        img_metadata[key] = value
     
     return img_metadata
 
