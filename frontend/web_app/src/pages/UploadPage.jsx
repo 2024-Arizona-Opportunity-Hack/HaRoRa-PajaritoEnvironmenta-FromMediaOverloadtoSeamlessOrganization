@@ -2,6 +2,7 @@
 import React, { useEffect, useState } from 'react';
 import Upload from '../components/Upload';
 import { getProfileInfo, handleLogin, handleLogout } from '../api/api'; // Import the necessary API functions
+import DropboxLogo from '../assets/dropbox-1.svg'; // Import Dropbox logo
 
 function UploadPage() {
   const [profile, setProfile] = useState(null);
@@ -31,28 +32,27 @@ function UploadPage() {
   };
 
   // If the user is not logged in, show the "Login with Dropbox" button
-if (!profile) {
-  return (
-    <div className="container mx-auto max-w-4xl flex flex-col justify-center items-center h-screen">
-      <h1 className="text-4xl font-bold mb-6 text-gray-800">Welcome to Media Manager</h1>
-      <p className="text-lg mb-6 text-gray-600">
-        Please log in to upload your media and manage your files.
-      </p>
-      <button
-        className="btn btn-primary py-3 px-6"  
-        onClick={handleLogin}
-      >
-        Login with Dropbox
-      </button>
-    </div>
-  );
-}
-
-  
+  if (!profile) {
+    return (
+      <div className="p-4 flex flex-col justify-center items-center h-screen bg-base-100 text-base-content">
+        <h1 className="text-4xl font-bold mb-6">Welcome to Media Manager</h1>
+        <p className="text-lg mb-6">
+          Please log in to upload your media and manage your files.
+        </p>
+        <button
+          className="btn btn-primary py-3 px-6"
+          onClick={handleLogin}
+        >
+          <img src={DropboxLogo} alt="Dropbox Logo" className="w-6 h-6 mr-2" /> 
+          Login with Dropbox
+        </button>
+      </div>
+    );
+  }
 
   // If the user is logged in, show profile info, upload form, and logout button
   return (
-    <div className="container mx-auto max-w-4xl">
+    <div className="p-4 bg-base-100 text-base-content">
       <h1 className="text-2xl font-bold my-4">Upload Media</h1>
       {profile && (
         <div className="mb-6">
@@ -60,9 +60,13 @@ if (!profile) {
           <p>Email: {profile.email}</p>
         </div>
       )}
-      <Upload /> {/* The Upload component */}
+      
+      {/* Upload Component */}
+      <Upload /> 
+
+      {/* Logout Button */}
       <button
-        className="bg-red-500 hover:bg-red-700 text-white font-bold py-2 px-4 rounded mt-4"
+        className="btn btn-error mt-4"
         onClick={handleLogoutClick}
       >
         Logout

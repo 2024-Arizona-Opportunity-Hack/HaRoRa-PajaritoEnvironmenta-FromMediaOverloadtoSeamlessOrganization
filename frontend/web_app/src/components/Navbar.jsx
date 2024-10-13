@@ -28,7 +28,7 @@ function Navbar() {
             value={theme}
             onChange={handleThemeChange}
           >
-            <option value="nord">Light</option>
+            <option value="cupcake">Light</option>
 
             <option value="luxury">Dark</option>
             
