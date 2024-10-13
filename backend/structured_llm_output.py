@@ -20,7 +20,12 @@ def llm_call(model: str, messages: list[Message], temp: float= 0.8):
       message_list.append(dataclasses.asdict(message))
     else:
       message_list.append(message)
-  client = openai.OpenAI(api_key=os.environ["TOGETHER_API_KEY"], base_url="https://api.together.xyz/v1")
+
+  if model.startswith('gpt'):
+    client = openai.OpenAI(api_key=os.environ["OPENAI_API_KEY"])
+  else:
+    client = openai.OpenAI(api_key=os.environ["TOGETHER_API_KEY"], base_url="https://api.together.xyz/v1")
+
   res = client.chat.completions.create(model=model, messages=message_list, temperature=temp, max_tokens=1024)
   return res.choices[0].message.content
 
