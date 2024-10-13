@@ -5,11 +5,12 @@ CREATE EXTENSION IF NOT EXISTS postgis;
 CREATE TABLE image_detail (
                               uuid UUID PRIMARY KEY,
                               url TEXT,
+    thumbnail_url TEXT,
                               title TEXT,
                               caption TEXT,
                               tags TEXT,
                               title_caption_tags_fts_vector tsvector generated always as  (to_tsvector('english', COALESCE(tags, '') || ' ' || COALESCE(title, '') || ' ' || COALESCE(caption, ''))) stored,
-                              embedding_vector VECTOR(768),
+                              embedding_vector VECTOR(512),
                               coordinates GEOMETRY(POINT, 4326),
                               capture_time TIMESTAMP,
                               extended_meta JSON,

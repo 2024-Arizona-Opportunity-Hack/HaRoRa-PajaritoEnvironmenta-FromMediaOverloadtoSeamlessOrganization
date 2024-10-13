@@ -87,7 +87,9 @@ def get_coordinates(location):
 # GET /search
 import search as search_expander
 @app.get("/search")
-async def search_files(query: str = None):
+async def search_files(q: str = None):
+  query = q
+  print('query:', query)
   if query:
     search_args = search_expander.get_search_args(query)
 
@@ -113,7 +115,7 @@ async def search_files(query: str = None):
     )
     if results is not None:
       results = [
-        dict(url=x.url, title=x.title, caption=x.caption, tags=x.tags, season=x.season, uuid=x.uuid)
+        dict(url=x.url, thumbnail_url=x.thumbnail_url, title=x.title, caption=x.caption, tags=x.tags.split(','), season=x.season, uuid=x.uuid)
         for x in results
       ]
     else:
@@ -150,6 +152,7 @@ from datetime import datetime
 def process_file(file_path: str):
   # Simulate file processing delay
   url = file_path # TODO: change to dropbox url 
+  thumbnail_url = image_processor.resize_and_encode_image(file_path)
 
   print('Getting title, caption, and tags ...')
   while True:
@@ -193,6 +196,7 @@ def process_file(file_path: str):
       else: season = 'fall'
   img_details = db.insert(
     url=url,
+    thumbnail_url=thumbnail_url,
     title=title,
     caption=caption,
     tags=tags,

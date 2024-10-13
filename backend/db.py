@@ -119,6 +119,7 @@ def get_search_query_result(conn,
     search_query_select_part = """
     select
         image_detail.url,
+        image_detail.thumbnail_url,
         image_detail.title,
         image_detail.caption,
         image_detail.tags,
@@ -134,7 +135,7 @@ def get_search_query_result(conn,
             full outer join semantic
                             on fts_ranked_title_caption_tags.uuid = semantic.uuid
             join image_detail
-                 on fts_ranked_title_caption_tags.uuid = image_detail.uuid"""
+                 on coalesce(fts_ranked_title_caption_tags.uuid, semantic.uuid) = image_detail.uuid"""
 
     search_query_where_part = get_where_clause_part(season, tags, coordinates, distance_radius, date_from, date_to)
 
@@ -144,10 +145,13 @@ def get_search_query_result(conn,
         coalesce(1.0 / ({} + semantic.rank_ix), 0.0) * {}
             desc
     limit
-        least({}, 30)""".format(rrf_k, full_text_weight, rrf_k, semantic_weight, match_count)
+        least({}, 30);""".format(rrf_k, full_text_weight, rrf_k, semantic_weight, match_count)
 
     search_query = (search_query_with_part + search_query_select_part + search_query_where_part +
                     search_query_order_by_limit_part)
+    print(search_query)
+    import pyperclip
+    pyperclip.copy(search_query)
 
     with conn.cursor() as cur:
         cur.execute(sql.SQL(search_query))
@@ -157,20 +161,25 @@ def get_search_query_result(conn,
 
 
 
+
 @with_connection
-def insert(conn,
-           url: str,
-           title: str,
-           caption: str,
-           tags: str,
-           embedded_vector: list[float],
-           coordinates: Optional[list[float]] = None,
-           capture_time: Optional[str] = None,
-           extended_meta: Optional[str] = None,
-           season: Optional[str] = None):
+def insert(
+  conn,
+  url: str,
+  thumbnail_url: str,
+  title: str,
+  caption: str,
+  tags: str,
+  embedded_vector: list[float],
+  coordinates: Optional[list[float]] = None,
+  capture_time: Optional[str] = None,
+  extended_meta: Optional[str] = None,
+  season: Optional[str] = None
+):
     entry = (
         str(uuid.uuid4()),
         url,
+        thumbnail_url,
         title,
         caption,
         tags,
@@ -182,8 +191,8 @@ def insert(conn,
     )
     insert_query = """
                INSERT INTO image_detail (
-                   uuid, url, title, caption, tags, embedding_vector, coordinates, capture_time, extended_meta, season
-               ) VALUES (%s, %s, %s, %s, %s, %s::float8[], ST_GeomFromText(%s), to_timestamp(%s, 'DD/MM/YYYY'), %s::json, %s)
+                   uuid, url, thumbnail_url, title, caption, tags, embedding_vector, coordinates, capture_time, extended_meta, season
+               ) VALUES (%s, %s, %s, %s, %s, %s, %s::float8[], ST_GeomFromText(%s), to_timestamp(%s, 'DD/MM/YYYY'), %s::json, %s)
            """
     with conn.cursor() as cur:
         cur.execute(insert_query, entry)
