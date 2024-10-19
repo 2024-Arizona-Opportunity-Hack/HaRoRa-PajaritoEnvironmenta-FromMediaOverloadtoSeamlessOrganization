@@ -13,7 +13,6 @@ function Search() {
   const [selectedUuid, setSelectedUuid] = useState(null);
   const [selectedTags, setSelectedTags] = useState(null);
 
-
   // Function to handle search and update URL
   const handleSearch = () => {
     // Update the URL with the query parameter
@@ -27,7 +26,7 @@ function Search() {
         setLoading(true);
         try {
           const data = await searchMedia(queryFromUrl);
-          console.log(data)
+          console.log(data);
           setResults(data['results']);
         } catch (error) {
           alert('Error fetching search results.');
@@ -38,14 +37,14 @@ function Search() {
     };
 
     fetchSearchResults(); // Fetch results on mount or query change
-    console.log(queryFromUrl)
+    console.log(queryFromUrl);
   }, [queryFromUrl]); // Dependency is the query parameter in the URL
 
   const closeTagEditor = () => {
     setSelectedUuid(null);
     // Optionally refresh search results after editing tags
-    window.location.reload();
-    handleSearch();
+    //window.location.reload();
+    //handleSearch();
   };
 
   return (
@@ -58,6 +57,11 @@ function Search() {
           className="input input-bordered w-full"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') {
+              handleSearch();
+            }
+          }} // Trigger search on Enter key
         />
         <button className="btn btn-primary ml-2" onClick={handleSearch}>
           Search
@@ -87,14 +91,13 @@ function Search() {
                 <h2 className="card-title text-sm">{item.title}</h2>
                 <p className="text-xs text-gray-600">
                   Tags:
-                      {(() => {
-                       if(item.tags.length>3){
-                        return " " + item.tags.slice(0,3).join(", ")+", ..."
-                      }else{
-                        return " " + item.tags.slice(0,3)
-                      }
-          })()}
-
+                  {(() => {
+                    if (item.tags.length > 3) {
+                      return ' ' + item.tags.slice(0, 3).join(', ') + ', ...';
+                    } else {
+                      return ' ' + item.tags.slice(0, 3);
+                    }
+                  })()}
                 </p>
                 <div className="card-actions justify-end">
                   <button
@@ -106,13 +109,13 @@ function Search() {
                     Open In Dropbox
                   </button>
 
-
                   <button
                     className="btn btn-xs btn-outline"
                     onClick={() => {
                       setSelectedUuid(item.uuid);
-                      console.log(item.tags)
-                    setSelectedTags(item.tags)}}
+                      console.log(item.tags);
+                      setSelectedTags(item.tags);
+                    }}
                   >
                     Edit Tags
                   </button>
