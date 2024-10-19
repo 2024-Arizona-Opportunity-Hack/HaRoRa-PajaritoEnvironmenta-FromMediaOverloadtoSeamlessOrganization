@@ -20,13 +20,19 @@ function UploadPage() {
 
   return (
     <div className="p-4  text-base-content max-w-3xl mx-auto">
-      <h1 className="text-2xl font-bold my-4">Upload Media</h1>
-      {profile && (
-        <div className="mb-6">
-          <h2 className="text-xl font-bold">Welcome, {profile.name}!</h2>
-          <p>Email: {profile.email}</p>
+      <div className="hero  mb-6 rounded-lg">
+        <div className="hero-content text-center">
+          <div className="max-w-md">
+            <h1 className="text-3xl font-bold">Upload Media</h1>
+            {profile && (
+              <p className="py-6 text-lg">
+                Welcome, <span className="font-semibold">{profile.name}</span>!
+              </p>
+            )}
+          </div>
         </div>
-      )}
+      </div>
+
       {/* Upload Component */}
       <Upload />
 

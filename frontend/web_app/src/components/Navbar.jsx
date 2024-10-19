@@ -4,7 +4,7 @@ import { useState, useEffect } from 'react';
 import { getProfileInfo, handleLogout } from '../api/api'; // Import the necessary API functions
 
 function Navbar() {
-  const [theme, setTheme] = useState('nord');
+  const [theme, setTheme] = useState('formalLight');
   const [isAuthenticated, setIsAuthenticated] = useState(false);
 
   useEffect(() => {
@@ -67,7 +67,7 @@ function Navbar() {
             </select> */}
             <label className="swap swap-rotate">
               {/* this hidden checkbox controls the state */}
-              <input type="checkbox" className="theme-controller" value="coffee" />
+              <input type="checkbox" className="theme-controller" value="formalDark" />
 
               {/* sun icon */}
               <svg
