@@ -1,4 +1,3 @@
-// src/pages/UploadPage.jsx
 import React, { useState, useEffect } from 'react';
 import Upload from '../components/Upload';
 import { getProfileInfo, handleLogout } from '../api/api'; // Import the necessary API functions
@@ -17,13 +16,10 @@ function UploadPage() {
   }, []);
 
   // Handle logout
-  const handleLogoutClick = async () => {
-    await handleLogout(); // Log out the user
-    window.location.reload(); // Refresh the page to reset the authentication state
-  };
+
 
   return (
-    <div className="p-4 bg-base-100 text-base-content">
+    <div className="p-4 bg-base-100 text-base-content max-w-3xl mx-auto">
       <h1 className="text-2xl font-bold my-4">Upload Media</h1>
       {profile && (
         <div className="mb-6">
@@ -34,13 +30,7 @@ function UploadPage() {
       {/* Upload Component */}
       <Upload />
 
-      {/* Logout Button */}
-      <button
-        className="btn btn-error mt-4"
-        onClick={handleLogoutClick}
-      >
-        Logout
-      </button>
+
     </div>
   );
 }
