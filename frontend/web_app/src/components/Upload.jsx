@@ -1,3 +1,4 @@
+// src/components/Upload.jsx
 import { useState, useEffect } from 'react';
 import { useDropzone } from 'react-dropzone';
 import { uploadFiles } from '../api/api'; // Import the upload function from api.jsx
@@ -31,18 +32,30 @@ function Upload() {
     });
 
     const handleUpload = async () => {
+        if (files.length === 0) {
+            alert('Please select files to upload.');
+            return;
+        }
+
         setIsUploading(true);
         setUploadProgress(0);
 
         try {
-            // Use the uploadFiles function from the api.jsx
-            await uploadFiles(files, tags);
-            alert('Files uploaded successfully!');
+            // Pass a callback to track upload progress
+            await uploadFiles(files, tags, (progressEvent) => {
+                const { loaded, total } = progressEvent;
+                const percentCompleted = Math.round((loaded * 100) / total);
+                setUploadProgress(percentCompleted);
+            });
+            setUploadProgress(100);
+
+            // alert('Files uploaded successfully!');
             setFiles([]);
             setTags('');
             setPreviewUrls([]);
-            setUploadProgress(0);
+            // setUploadProgress(0);
         } catch (error) {
+            console.error('Upload error:', error);
             alert('Error uploading files.');
         } finally {
             setIsUploading(false);
@@ -50,7 +63,7 @@ function Upload() {
     };
 
     useEffect(() => {
-        // Clean up the object URLs when component unmounts
+        // Clean up the object URLs when component unmounts or files change
         return () => {
             previewUrls.forEach((file) => URL.revokeObjectURL(file.preview));
         };
@@ -121,19 +134,24 @@ function Upload() {
 
             {/* Tags Input */}
             <div className="mt-6">
-                <label className="block text-gray-700 text-sm font-bold mb-2">Tags</label>
+                <label className="block text-primary text-sm font-bold mb-2">Tags</label>
                 <input
                     type="text"
                     placeholder="Enter tags separated by commas"
                     className="input input-bordered w-full"
                     value={tags}
                     onChange={(e) => setTags(e.target.value)}
+                    disabled={isUploading} // Disable input during upload
                 />
             </div>
 
             {/* Upload Button */}
-            <button className="btn btn-primary mt-6 w-full" onClick={handleUpload} disabled={isUploading}>
-                {isUploading ? 'Uploading...' : 'Upload'}
+            <button
+                className="btn btn-primary mt-6 w-full"
+                onClick={handleUpload}
+                disabled={isUploading || files.length === 0}
+            >
+                {isUploading ? `Uploading... ${uploadProgress}%` : 'Upload'}
             </button>
         </div>
     );
