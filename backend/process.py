@@ -184,8 +184,16 @@ def convert_to_degrees(value):
     d, m, s = value
     return d + (m / 60.0) + (s / 3600.0)
 
-def extract_image_metadata(image_path: str):
-    """Extract metadata including latitude, longitude, and capture date."""
+def extract_image_metadata(image_path: str) -> dict:
+    """
+    Extract metadata including latitude, longitude, and capture date from an image.
+
+    Args:
+        image_path (str): Path to the image file.
+
+    Returns:
+        dict: A dictionary containing the capture date, latitude, and longitude.
+    """
     img_metadata = {}
     exif_data = get_exif_data(image_path)
     if not exif_data:
@@ -209,6 +217,7 @@ if __name__ == "__main__":
     image_path = "/Users/saurabh/AA/divergent/ASU Graduation Ceremony/IMG_7918.JPG"
     dropbox_img_path = "https://www.dropbox.com/sh/34kuc:re3kg4bes/AACDsAS8URMseqXl1JrXqy84a/2017/_FINAL-2017Nov18-SmallFryProspectMine-WithPatrickRowe-PHOTOS-From-Dave-Schiferl?e=2&preview=_DSC6125-Small-Fry-Prospect-Mine-Searching-For-Fluorite.JPG&st=5n2irk4w&subfolder_nav_tracking=1&dl=0"
     # print(get_text_embedding("A couple walking hand in hand on a beach during sunset"))
-    print(get_image_embedding(dropbox_img_path))
-    # print(extract_image_metadata(image_path))
+    # print(get_image_embedding(dropbox_img_path))
+    dd = extract_image_metadata(image_path)
+    print(dd)
     # get_image_captioning(dropbox_img_path)
