@@ -1,0 +1,24 @@
+repos:
+-   repo: https://github.com/pre-commit/pre-commit-hooks
+    rev: v3.4.0
+    hooks:
+    -   id: trailing-whitespace
+    -   id: end-of-file-fixer
+    -   id: check-yaml
+    -   id: check-added-large-files
+-   repo: https://github.com/psf/black
+    rev: 23.7.0
+    hooks:
+    -   id: black
+        args: ["--line-length", "120"]
+        name: autoformat
+-   repo: https://github.com/prettier/prettier
+    rev: 2.8.8
+    hooks:
+    -   id: prettier
+        args: ["--write", "--single-quote", "--jsx-single-quote"]
+-   repo: https://github.com/pre-commit/mirrors-mypy
+    rev: v1.11.2
+    hooks:
+    -   id: mypy
+        args: ["--strict", "--ignore-missing-imports", "--config-file", "mypy.ini"]
