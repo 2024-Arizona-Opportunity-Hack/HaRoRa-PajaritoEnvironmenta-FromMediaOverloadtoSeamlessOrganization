@@ -1,18 +1,31 @@
+import imghdr
+import json
+import openai
+import os
+import requests
+import threading
+import time
+import uuid
+from datetime import datetime, timedelta
+from queue import Queue
+from typing import List
+from urllib.parse import urlencode
+
 from fastapi import FastAPI, File, UploadFile, HTTPException, Form
 from fastapi.middleware.cors import CORSMiddleware
 from starlette.responses import HTMLResponse, RedirectResponse
 from starlette.requests import Request
 from starlette.middleware.sessions import SessionMiddleware
-from typing import List
-import uuid
-import imghdr
-import json
-from queue import Queue
-import os
-from urllib.parse import urlencode
+
+import data_models
+import db
+import process as image_processor
+import search as search_expander  # expands query into additional filters
+import structured_llm_output
 
 app = FastAPI()
 file_queue = Queue()
+job_queue = Queue()
 
 
 app.add_middleware(SessionMiddleware, secret_key=os.environ["FASTAPI_SESSION_SECRET_KEY"])
@@ -23,7 +36,6 @@ origins = [
     "http://peec.harora.lol"  # replace with your frontend domain
     "https://peec.harora.lol",  # replace with your frontend domain
 ]
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,  # Allows specified origins
@@ -31,6 +43,10 @@ app.add_middleware(
     allow_methods=["*"],  # Allows all methods (GET, POST, PUT, etc.)
     allow_headers=["*"],  # Allows all headers
 )
+
+# ===
+# AUTH
+# ===
 
 # DROPBOX Setup
 AUTH_URI = "https://www.dropbox.com/oauth2/authorize"
@@ -50,9 +66,6 @@ async def login(request: Request):
     }
     auth_url = f"{AUTH_URI}?{urlencode(auth_params)}"
     return {"auth_url": auth_url}
-
-
-# https://www.dropbox.com/oauth2/authorize?client_id=9g3q8zck6ksa87a&redirect_uri=http%3A%2F%2Flocalhost%3A8080%2Fapi%2Fauth%2Fdropbox%2Fcallback&response_type=code&token_access_type=offline
 
 
 @app.get("/auth/dropbox/callback")
@@ -111,10 +124,9 @@ async def profile(request: Request):
     return {"name": user["name"], "email": user["email"], "account_id": user["account_id"]}
 
 
-# Dummy data
-data = {"files": [], "tags": {}}
-
-
+# ===
+# Upload Endpoint
+# ===
 # Helper function to validate image file types
 def validate_image(file: UploadFile):
     valid_image_formats = {"jpeg", "png", "gif", "bmp", "jpg"}
@@ -133,36 +145,20 @@ async def upload_images(request: Request, files: List[UploadFile] = File(...), t
     access_token = user["access_token"]
     uploaded_files: List[dict] = []
     for file in files:
-        try:
-            file_type: str = validate_image(file)
-        except HTTPException as e:
-            return e.detail
-
+        file_type: str = validate_image(file)
         file_id: str = str(uuid.uuid4())
-        file_data: dict = {"id": file_id, "name": file.filename, "type": file_type, "tags": tags}
-        data["files"].append(file_data)
         uploaded_files.append({"file_id": file_id, "name": file.filename, "type": file_type, "tags": tags})
-
-        # store the file in /tmp dir
+        # store the img in /tmp dir
         file_location = f"/tmp/{file_id}.{file_type}"
         with open(file_location, "wb") as buffer:
             buffer.write(await file.read())
-        file_queue.put((file_location, [x.strip() for x in tags.split(",") if x.strip()], access_token))
-
-    # Store tags
-    for tag in tags.split(","):
-        tag = tag.strip()
-        if tag in data["tags"]:
-            data["tags"][tag].append(file_id)
-        else:
-            data["tags"][tag] = [file_id]
-
+        file_queue.put((file_location, [x.strip() for x in tags.split(",") if x.strip()], access_token, datetime.now()))
     return {"uploaded_files": uploaded_files}
 
 
-import requests
-
-
+# ===
+# Search Endpoint
+# ===
 # Geocoding function
 def get_coordinates(location):
     api_url = f"https://nominatim.openstreetmap.org/search?format=json&q={location}"
@@ -171,10 +167,6 @@ def get_coordinates(location):
     if data:
         return float(data[0]["lat"]), float(data[0]["lon"])
     return None, None
-
-
-# GET /search
-import search as search_expander
 
 
 @app.get("/search")
@@ -224,14 +216,11 @@ async def search_files(q: str = None):
         return {"results": []}
 
 
-# GET /tag/{uuid}
-@app.get("/tag/{file_id}")
-async def get_tags(file_id: str):
-    tags = data["tags"].get(file_id, [])
-    return {"file_id": file_id, "tags": tags}
+# ===
+# Tags Endpoint
+# ===
 
 
-# PUT /tag/{uuid}
 @app.put("/tag/{file_id}")
 async def update_tags(file_id: str, tags: List[str]):
     db.update_tags(file_id, ",".join(tags))
@@ -239,18 +228,37 @@ async def update_tags(file_id: str, tags: List[str]):
 
 
 # ===
-# File Processing
+# Submit Batch Job to OAI
 # ===
-import data_models
-import db
-import threading
-import time
-import process as image_processor
-from datetime import datetime
-
-import requests
+open("dlq", "w").close()
 
 
+def file_processor():
+    files_list = []
+    while True:
+        if not file_queue.empty():
+            file_details = file_queue.get()
+            files_list.append(file_details)
+        else:
+            time.sleep(60)
+        if not len(files_list):
+            continue
+        if len(files_list) > 50 or (datetime.now() - files_list[0][-1] > timedelta(hours=4)):
+            try:
+                res = image_processor.process_batch(files_list)
+                job_queue.put(res)
+                print(f"Submitted job with id: {res[0]} to OpenAI")
+            except Exception as e:
+                print(e)
+                with open("dlq", "a") as f:
+                    f.write("\n".join([str(x) for x in files_list]) + "\n")
+            finally:
+                files_list = []
+
+
+# ===
+# Image Processing
+# ===
 def upload_to_dropbox(access_token, file_path, dropbox_path):
     url = "https://content.dropboxapi.com/2/files/upload"
     headers = {
@@ -260,45 +268,20 @@ def upload_to_dropbox(access_token, file_path, dropbox_path):
         ),
         "Content-Type": "application/octet-stream",
     }
-
     # Open the local file in binary mode to send it in the request
     with open(file_path, "rb") as file:
         response = requests.post(url, headers=headers, data=file)
-
-    # Check for response status and return accordingly
-    if response.status_code == 200:
-        return response.json()  # Dropbox's successful response
-    else:
-        return {"error": response.text}  # Handle the error response
+    return response.json() if response.status_code == 200 else {"error": response.text}
 
 
-# Example usage:
-# access_token = "<get access token>"
-# local_file_path = "local_file.txt"
-# dropbox_destination_path = "/Homework/math/Matrices.txt"
-
-# response = upload_to_dropbox(access_token, local_file_path, dropbox_destination_path)
-# print(response)
-
-
-import os
-
-
-def process_file(file_path: str, tags_list: list[str], access_token: str):
-    # Simulate file processing delay
+def process_file(file_path: str, tags_list: list[str], access_token: str, img_details: dict[str, str | list[str]]):
     dropbox_destination_path = "/images/" + os.path.basename(file_path)
     response = upload_to_dropbox(access_token, file_path, dropbox_destination_path)
-    print(response)
-
     url = f"https://www.dropbox.com/home/Apps/PeecMediaManager/images?preview={os.path.basename(file_path)}"
     thumbnail_url = image_processor.get_thumbnail(file_path)
 
     print("Getting title, caption, and tags ...")
     while True:
-        img_details = image_processor.get_image_captioning(file_path)
-        if img_details is None:
-            print("get_image_captioning returned None")
-            continue
         title = img_details["title"]
         caption = img_details["image_description"]
         tags = ",".join(tags_list + img_details["tags"])
@@ -351,24 +334,88 @@ def process_file(file_path: str, tags_list: list[str], access_token: str):
         season=season,
     )
     print(f"Processed file: {file_path}")
-    # TODO: push file to dropbox
-    # TODO: remove file
 
 
-def file_processor():
+# process
+def compute_embeddings_and_metadata_and_push_to_db(
+    batch_id, input_file_id, batch_jsonl_fp, batch_metadata_fp, batch_object
+):
+    with open(batch_metadata_fp, "r") as f:
+        batch_metadata = json.load(f)
+
+    print("\nbatch processing results:")
+    client = openai.OpenAI()
+    output_file_response = client.files.content(batch_object.output_file_id)
+    json_data = output_file_response.content.decode("utf-8")
+    for line in json_data.splitlines():
+        json_record = json.loads(line)
+        response = (
+            json_record.get("response", {}).get("body", {}).get("choices", [])[0].get("message", {}).get("content")
+        )
+        img_details = structured_llm_output.parse_llm_response(image_processor.ImageData, response)
+        if img_details is None:
+            print("get_image_captioning returned None")
+            continue
+        image_path = json_record.get("custom_id")
+        process_file(
+            image_path,
+            batch_metadata[image_path]["tags"],
+            batch_metadata[image_path]["access_token"],
+            img_details.model_dump(),
+        )
+        try:
+            os.remove(image_path)
+            print(f"removed file: {image_path} sucessfully")
+        except Exception as e:
+            print("file removal unsuccessful. got error:", e)
+
+
+def job_processor():
+    client = openai.OpenAI()
     while True:
-        if not file_queue.empty():
-            file_path, tags, access_token = file_queue.get()
-            process_file(file_path, tags, access_token)
+        if not job_queue.empty():
+            batch_id, input_file_id, batch_jsonl_fp, batch_metadata_fp = job_queue.get()
+            batch_object = client.batches.retrieve(batch_id)
+            if batch_object.status in ["validating", "in_progress", "finalizing"]:
+                print(f"Batch Object status:", batch_object.status)
+                time.sleep(60)
+                job_queue.put((batch_id, input_file_id, batch_jsonl_fp, batch_metadata_fp))
+            elif batch_object.status == "completed":
+                print("Caption and Tag Generation (batch job) complete")
+                compute_embeddings_and_metadata_and_push_to_db(
+                    batch_id, input_file_id, batch_jsonl_fp, batch_metadata_fp, batch_object
+                )
+                # clean up
+                try:
+                    client.files.delete(input_file_id)
+                    client.files.delete(batch_object.output_file_id)
+                    os.remove(batch_jsonl_fp)
+                    os.remove(batch_metadata_fp)
+                    print("Clean up and everything done for batch:", batch_id)
+                except Exception as e:
+                    print("Clean up messed up with err:", e)
+            else:
+                print(f"batch job failed with status: {batch_object.status}")
+
         else:
-            time.sleep(1)
+            time.sleep(5)
 
 
 # Start a background thread for processing files
 threading.Thread(target=file_processor, daemon=True).start()
+threading.Thread(target=job_processor, daemon=True).start()
 
 
 if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run("api:app", host="localhost", port=8080, reload=True)
+
+    """
+    # test if file_processor and job_processor threads work appropriately, by adding to images to the first queue
+    # image files: ../../image.jpg, ../screenshot.png
+    file_queue.put(("../../image.png", ["tag1", "tag2"], "access_token", datetime.now()))
+    file_queue.put(("../screenshot.png", ["tag3", "tag4"], "access_token", datetime.now()))
+
+    input('Do not press Enter, else program will stop')
+    """

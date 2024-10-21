@@ -1,7 +1,9 @@
-import io
-import os
-import json
 import base64
+import io
+import json
+import openai
+import os
+import uuid
 from PIL.ExifTags import TAGS, GPSTAGS
 from PIL import Image
 from typing import List
@@ -39,7 +41,74 @@ class ImageData(BaseModel):
     )
 
 
-def get_image_captioning(image_path: str) -> str | None:
+def process_batch(files_list: list[tuple]) -> tuple[str, str, str, str]:
+    batch_oai, batch_metadata = [], dict()
+    for x in files_list:
+        image_path = x[0]
+        size = 1024
+        image = Image.open(image_path)
+        resized_image = image.resize((size, size))
+        img_format = image_path.split(".")[-1].upper()
+        if img_format == "JPG":
+            img_format = "JPEG"
+        output = io.BytesIO()
+        resized_image.save(output, format=img_format)
+        output.seek(0)
+        image_url = f"data:image/{img_format};base64,{base64.b64encode(output.getvalue()).decode('utf-8')}"
+
+        suffix = f"\n---\n\n{structured_llm_output.generate_response_prompt(ImageData)}---\n"
+        messages = [
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": f"Analyze the image and provide a detailed, factual description. Ensure that the tags are short, specific, and relevant for search queries. Avoid redundancy and prioritize the most salient aspects of the image.\n{suffix}",
+                    },
+                    {
+                        "type": "image_url",
+                        "image_url": {"url": image_url, "detail": "low"},
+                    },
+                ],
+            }
+        ]
+        batch_oai.append(
+            json.dumps(
+                {
+                    "custom_id": image_path,
+                    "method": "POST",
+                    "url": "/v1/chat/completions",
+                    "body": {"model": "gpt-4o-mini", "messages": messages, "max_tokens": 1024},
+                }
+            )
+        )
+        batch_metadata[image_path] = {
+            "image_path": image_path,
+            "tags": x[1],
+            "access_token": x[2],
+        }
+
+    batch_uid = uuid.uuid4()
+    batch_jsonl = f"/tmp/{batch_uid}.jsonl"
+    batch_metadata_json = f"/tmp/{batch_uid}_metadata.json"
+    with open(batch_jsonl, "w") as f:
+        f.write("\n".join(batch_oai))
+    with open(batch_metadata_json, "w") as f:
+        json.dump(batch_metadata, f)
+
+    client = openai.OpenAI()
+    # Upload the batch file
+    batch_input_file = client.files.create(file=open(batch_jsonl, "rb"), purpose="batch")
+    # Create the batch job
+    batch = client.batches.create(
+        input_file_id=batch_input_file.id,
+        completion_window="24h",
+        endpoint="/v1/chat/completions",
+    )
+    return batch.id, batch_input_file.id, batch_jsonl, batch_metadata_json
+
+
+def get_image_captioning(image_path: str) -> dict | None:
     try:
         size = 1024
         image = Image.open(image_path)
