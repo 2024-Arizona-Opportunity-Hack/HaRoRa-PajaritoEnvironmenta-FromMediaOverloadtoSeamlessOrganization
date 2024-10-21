@@ -32,27 +32,25 @@ export const handleLogin = async () => {
 
 //logout
 export const handleLogout = async () => {
-    axios.get('/logout')
-        .then(response => {
-            setProfile(null);
-            setError(null);
-        })
-        .catch(error => {
-            console.log(error)
-            setError('Error: ' + error.message);
-        })
-}
+  try {
+    const response = await axios.get('/logout');
+    return response.data;
+  } catch (error) {
+    console.log(error);
+    throw new Error('Error: ' + error.message);
+  }
+};
 
-
-// Upload files to the server
-export const uploadFiles = async (files, tags) => {
+// Upload files to the server with progress tracking
+export const uploadFiles = async (files, tags, onUploadProgress) => {
     const formData = new FormData();
     files.forEach((file) => formData.append('files', file));
     formData.append('tags', tags);
 
     try {
         const response = await axios.post('/upload', formData, {
-            headers: {'Content-Type': 'multipart/form-data'},
+      headers: { 'Content-Type': 'multipart/form-data' },
+      onUploadProgress, // Attach the progress callback
         });
         return response.data;
     } catch (error) {
@@ -62,9 +60,15 @@ export const uploadFiles = async (files, tags) => {
 };
 
 // Search for media
-export const searchMedia = async (query) => {
+export const searchMedia = async (query, page = 1, pageSize = 10) => {
     try {
-        const response = await axios.get('/search', {params: {q: query}});
+    const response = await axios.get('/search', {
+      params: {
+        q: query,
+        page: page,
+        page_size: pageSize,
+      },
+    });
         return response.data;
     } catch (error) {
         console.error('Error searching media:', error);
@@ -84,24 +88,23 @@ export const getTags = async (uuid) => {
 };
 
 export const updateTags = async (uuid, tags) => {
-    let data = JSON.stringify(tags);
-    let config = {
+  const data = JSON.stringify(tags);
+  const config = {
         method: 'put',
         maxBodyLength: Infinity,
         url: `/tag/${uuid}`,
         headers: {
-            'accept': 'application/json',
-            'Content-Type': 'application/json'
+      accept: 'application/json',
+      'Content-Type': 'application/json',
         },
-        data: data
+    data: data,
     };
 
-    axios.request(config)
-        .then((response) => {
-            console.log(JSON.stringify(response.data));
-        })
-        .catch((error) => {
+  try {
+    const response = await axios.request(config);
+    return response.data;
+  } catch (error) {
             console.log(error);
-        });
-
+    throw error;
+  }
 };
