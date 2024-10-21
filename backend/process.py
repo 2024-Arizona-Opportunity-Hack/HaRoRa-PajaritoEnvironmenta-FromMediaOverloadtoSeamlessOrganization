@@ -2,23 +2,30 @@ import io
 import os
 import json
 import base64
+import traceback
 from urllib.parse import urlparse, urlunparse
 from PIL.ExifTags import TAGS, GPSTAGS
 from PIL import Image
+from PIL.TiffImagePlugin import IFDRational
 from typing import List
+import piexif
 import requests
 from together import Together
 from pydantic import BaseModel, Field
 from langchain.prompts import PromptTemplate
 from langchain_core.output_parsers import JsonOutputParser
 import structured_llm_output
+from fractions import Fraction
+import logging
+
+logging.basicConfig(level=logging.INFO)
 
 class ImageData(BaseModel):
     title: str = Field(desc="Short filename-like title describing the image content")
     image_description: str = Field(desc="One-line caption describing what the image is about")
     tags: List[str] = Field(desc="List of concise tags for image retrieval, including objects, actions, settings, seasons, locations, image type, text, and distinctive features", max_length=20)
     class Config:
-        schema_extra = {
+        json_schema_extra = {
             "example": {
                 "title": "sunset_beach_couple.jpg",
                 "image_description": "A couple walking hand in hand on a beach during sunset",
@@ -98,7 +105,6 @@ def get_vision_response(prompt: str, image_path: str):
         print(e)
 
 
-
 from typing import List
 from transformers import CLIPProcessor, CLIPModel
 import torch
@@ -138,56 +144,89 @@ def get_image_captioning(image_path: str):
   except Exception as e:
     print(e)
 
-def get_exif_data(image_path):
+def get_exif_data(image_path: str) -> dict:
     """Extract EXIF data from an image."""
-    image = Image.open(image_path)
-    exif_data = image._getexif()  # Retrieve EXIF data
+    try:
+        image = Image.open(image_path)
+        exif_data = image._getexif()  # Retrieve EXIF data
+        image.close()
+        
+        if exif_data is None:
+            return {}
+        
+        exif = {}
+        for tag, value in exif_data.items():
+            tag_name = TAGS.get(tag, tag)
+            exif[tag_name] = value
 
-    if exif_data is None:
-        return None
+        return exif
 
-    exif = {}
-    for tag, value in exif_data.items():
-        tag_name = TAGS.get(tag, tag)
-        exif[tag_name] = value
+    except FileNotFoundError:
+        logging.error(f"File not found: {image_path}")
+        return {}
+    except IOError:
+        logging.error(f"Error opening file: {image_path}")
+        return {}
+    except Exception as e:
+        logging.error(f"An error occurred: {str(e)}")
+        return {}
 
-    return exif
-
-def get_gps_info(exif):
+def get_gps_info(exif: dict) -> dict:
     """Extract GPS information from EXIF data."""
-    gps_info = {}
-    if 'GPSInfo' in exif:
-        for key in exif['GPSInfo'].keys():
-            decode = GPSTAGS.get(key, key)
-            gps_info[decode] = exif['GPSInfo'][key]
+    try:
+        gps_info = {}
+        if 'GPSInfo' in exif:
+            for key, value in exif['GPSInfo'].items():
+                decode = GPSTAGS.get(key, key)
+                gps_info[decode] = value
 
-        # Convert latitude and longitude to decimal degrees
-        if 'GPSLatitude' in gps_info and 'GPSLongitude' in gps_info:
-            lat_ref = gps_info.get('GPSLatitudeRef')
-            lon_ref = gps_info.get('GPSLongitudeRef')
+            # Convert latitude and longitude to decimal degrees
+            if 'GPSLatitude' in gps_info and 'GPSLongitude' in gps_info:
+                lat_ref = gps_info.get('GPSLatitudeRef')
+                lon_ref = gps_info.get('GPSLongitudeRef')
 
-            lat = convert_to_degrees(gps_info['GPSLatitude'])
-            lon = convert_to_degrees(gps_info['GPSLongitude'])
+                lat = convert_to_degrees(gps_info['GPSLatitude'])
+                lon = convert_to_degrees(gps_info['GPSLongitude'])
 
-            if lat_ref != 'N':  # South latitudes are negative
-                lat = -lat
-            if lon_ref != 'E':  # West longitudes are negative
-                lon = -lon
+                if lat_ref != 'N':  # South latitudes are negative
+                    lat = -lat
+                if lon_ref != 'E':  # West longitudes are negative
+                    lon = -lon
 
-            gps_info['Latitude'] = lat
-            gps_info['Longitude'] = lon
+                gps_info['Latitude'] = lat
+                gps_info['Longitude'] = lon
 
-    return gps_info
+        return gps_info
+    except Exception as e:
+        logging.error(f"An error occurred: {str(e)}")
+        logging.error(f"{traceback.format_exc()}")
+        return {}
 
-def convert_to_degrees(value):
+def convert_to_degrees(value: tuple) -> float:
     """Convert the GPS coordinates stored as (degrees, minutes, seconds) into decimal degrees."""
-    d, m, s = value
-    return d + (m / 60.0) + (s / 3600.0)
+    try:
+        d, m, s = value
+        return d + (m / 60.0) + (s / 3600.0)
+    except ValueError:
+        logging.warning(f"Invalid GPS data: {value}")
+        return 0.0
+
+def convert_custom(obj):
+    """Handle various EXIF object types for JSON serialization."""
+    if isinstance(obj, bytes):
+        return base64.b64encode(obj).decode('utf-8')  # Convert bytes to base64 encoded string
+    elif isinstance(obj, IFDRational):  # Simulating IFDRational by using fractions.Fraction
+        return float(obj)  # Convert IFDRational to float
+    elif isinstance(obj, dict):
+        return {k: convert_custom(v) for k, v in obj.items()}
+    elif isinstance(obj, tuple):
+        return tuple(convert_custom(v) for v in obj)
+    return obj
 
 def extract_image_metadata(image_path: str) -> dict:
     """
     Extract metadata including latitude, longitude, and capture date from an image.
-
+    
     Args:
         image_path (str): Path to the image file.
 
@@ -195,29 +234,51 @@ def extract_image_metadata(image_path: str) -> dict:
         dict: A dictionary containing the capture date, latitude, and longitude.
     """
     img_metadata = {}
-    exif_data = get_exif_data(image_path)
-    if not exif_data:
-        print("No EXIF metadata found.")
-        return
 
-    img_metadata['capture_date'] = exif_data.get('Date/TimeOriginal', None)
+    try:
+        # Attempt to extract EXIF data
+        raw_exif_data = get_exif_data(image_path)
+        if not raw_exif_data:
+            logging.info("No EXIF metadata found.")
+            return {}
 
-    gps_info = get_gps_info(exif_data)
+        exif_data = convert_custom(raw_exif_data)
+        
+        # Extract capture date
+        img_metadata['capture_date'] = exif_data.get('DateTimeOriginal', None)
+        
+        # Extract GPS information
+        gps_info = get_gps_info(exif_data)
+        if gps_info:
+            img_metadata['latitude'] = gps_info.get('Latitude', None)
+            img_metadata['longitude'] = gps_info.get('Longitude', None)
+        else:
+            logging.info("No GPS information found.")
 
+        # Include all remaining EXIF data excluding GPSInfo and DateTimeOriginal
+        for key, value in exif_data.items():
+                img_metadata[key] = value
+
+    except FileNotFoundError:
+        logging.error(f"File not found: {image_path}")
+        return {}
     
-    if gps_info:
-        img_metadata['latitude'] = gps_info.get('Latitude', None)
-        img_metadata['longitude'] = gps_info.get('Longitude', None)
-    else:
-        print("No GPS information found.")
+    except IOError as io_err:
+        logging.error(f"IOError occurred when processing file: {image_path}. Error: {io_err}")
+        return {}
     
+    except Exception as e:
+        logging.error(f"An unexpected error occurred while processing the image metadata: {e}")
+        return {}
+
     return img_metadata
 
 if __name__ == "__main__":
+    # image_path = "/Users/saurabh/Downloads/IMG_4119.jpg"
     image_path = "/Users/saurabh/AA/divergent/ASU Graduation Ceremony/IMG_7918.JPG"
     dropbox_img_path = "https://www.dropbox.com/sh/34kuc:re3kg4bes/AACDsAS8URMseqXl1JrXqy84a/2017/_FINAL-2017Nov18-SmallFryProspectMine-WithPatrickRowe-PHOTOS-From-Dave-Schiferl?e=2&preview=_DSC6125-Small-Fry-Prospect-Mine-Searching-For-Fluorite.JPG&st=5n2irk4w&subfolder_nav_tracking=1&dl=0"
     # print(get_text_embedding("A couple walking hand in hand on a beach during sunset"))
     # print(get_image_embedding(dropbox_img_path))
     dd = extract_image_metadata(image_path)
-    print(dd)
+    print(json.dumps(dd, indent=4))
     # get_image_captioning(dropbox_img_path)
