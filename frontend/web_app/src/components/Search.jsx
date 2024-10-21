@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { searchMedia } from '../api/api.jsx';
 import TagEditor from './TagEditor';
+import { searchMedia } from '../api/api.jsx';
 
 function Search() {
     const [searchParams, setSearchParams] = useSearchParams();
@@ -18,6 +18,7 @@ function Search() {
     const [selectedTags, setSelectedTags] = useState([]);
     const [loading, setLoading] = useState(false);
     const [selectedUuid, setSelectedUuid] = useState(null);
+    const [editTags, setEditTags] = useState([]); // New state for tags being edited
     const [currentPage, setCurrentPage] = useState(pageFromUrl);
     const [totalPages, setTotalPages] = useState(1);
     const [dropdownOpen, setDropdownOpen] = useState(false);
@@ -44,40 +45,40 @@ function Search() {
     };
 
     // Fetch search results
-    useEffect(() => {
-        const fetchSearchResults = async () => {
-            if (queryFromUrl) {
-                setLoading(true);
-                try {
-                    const data = await searchMedia(queryFromUrl, currentPage, pageSize);
-                    setResults(data.results || []);
-                    setTotalPages(data.total_pages || 1);
+    const fetchSearchResults = async () => {
+        if (queryFromUrl) {
+            setLoading(true);
+            try {
+                const data = await searchMedia(queryFromUrl, currentPage, pageSize);
+                setResults(data.results || []);
+                setTotalPages(data.total_pages || 1);
 
-                    // Extract unique tags from results
-                    const tagsSet = new Set();
-                    data.results.forEach((item) => {
-                        item.tags.forEach((tag) => tagsSet.add(tag));
-                    });
-                    setAvailableTags(Array.from(tagsSet));
-                } catch (error) {
-                    if (error.response && error.response.status === 404) {
-                        alert('No results found.');
-                    } else {
-                        alert('Error fetching search results.');
-                    }
-                    setResults([]);
-                    setAvailableTags([]);
-                    setTotalPages(1);
-                } finally {
-                    setLoading(false);
+                // Extract unique tags from results
+                const tagsSet = new Set();
+                data.results.forEach((item) => {
+                    item.tags.forEach((tag) => tagsSet.add(tag));
+                });
+                setAvailableTags(Array.from(tagsSet));
+            } catch (error) {
+                if (error.response && error.response.status === 404) {
+                    alert('No results found.');
+                } else {
+                    alert('Error fetching search results.');
                 }
-            } else {
                 setResults([]);
                 setAvailableTags([]);
                 setTotalPages(1);
+            } finally {
+                setLoading(false);
             }
-        };
+        } else {
+            setResults([]);
+            setAvailableTags([]);
+            setTotalPages(1);
+        }
+    };
 
+    useEffect(() => {
         fetchSearchResults();
         console.log(`Query: ${queryFromUrl}, Page: ${currentPage}`);
     }, [queryFromUrl, currentPage]);
@@ -101,6 +102,8 @@ function Search() {
 
     const closeTagEditor = () => {
         setSelectedUuid(null);
+        setEditTags([]); // Reset editTags when closing
+        fetchSearchResults(); // Refresh search results after editing tags
     };
 
     // Generate pagination buttons
@@ -157,7 +160,7 @@ function Search() {
 
             {/* Tag Filter Dropdown */}
             {availableTags.length > 0 && (
-                <div className="relative inline-block text-left" ref={dropdownRef}>
+                <div className="relative inline-block text-left mb-4" ref={dropdownRef}>
                     <div>
                         <button
                             type="button"
@@ -204,6 +207,14 @@ function Search() {
                                         {tag}
                                     </label>
                                 ))}
+                                {selectedTags.length > 0 && (
+                                    <button
+                                        className="w-full text-left px-4 py-2 text-sm text-red-600 hover:bg-red-100"
+                                        onClick={() => setSelectedTags([])}
+                                    >
+                                        Clear Filters
+                                    </button>
+                                )}
                             </div>
                         </div>
                     )}
@@ -250,7 +261,7 @@ function Search() {
                                             className="btn btn-xs btn-outline"
                                             onClick={() => {
                                                 setSelectedUuid(item.uuid);
-                                                setSelectedTags(item.tags);
+                                                setEditTags(item.tags); // Set tags to edit
                                             }}
                                         >
                                             Edit Tags
@@ -295,7 +306,13 @@ function Search() {
             )}
 
             {/* Tag Editor Modal */}
-            {selectedUuid && <TagEditor uuid={selectedUuid} onClose={closeTagEditor} tags={selectedTags} />}
+            {selectedUuid && (
+                <TagEditor
+                    uuid={selectedUuid}
+                    onClose={closeTagEditor}
+                    tags={editTags} // Pass the tags being edited
+                />
+            )}
         </div>
     );
 }
