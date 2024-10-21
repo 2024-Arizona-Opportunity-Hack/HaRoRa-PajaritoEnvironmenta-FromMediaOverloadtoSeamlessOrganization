@@ -1,47 +1,44 @@
-import { useState, useEffect } from 'react';
-import { updateTags } from '../api/api.jsx';
+// src/components/TagEditor.jsx
 
-function TagEditor({ uuid, onClose, tags: selectedTags }) {
-  const [tags, setTags] = useState('');
+import React, { useState } from 'react';
+import { updateTags } from '../api/api.jsx'; // Import updateTags
 
-  useEffect(() => {
-    // Update tags state with selectedTags when component mounts or selectedTags changes
-    if (selectedTags) {
-      setTags(selectedTags.join(', '));
-    }
-  }, [selectedTags]);
+function TagEditor({ uuid, onClose, tags }) {
+    const [editTags, setEditTags] = useState(tags.join(', '));
 
-  const handleSave = async () => {
-    try {
-      await updateTags(uuid, tags.split(',').map((tag) => tag.trim()));
-      alert('Tags updated successfully!');
-      onClose();
-    } catch (error) {
-      alert('Error updating tags.');
-    }
-  };
+    const handleSave = async () => {
+        const updatedTags = editTags.split(',').map((tag) => tag.trim());
+        try {
+            await updateTags(uuid, updatedTags); // Call the updateTags API
+            onClose(); // Close the modal after successful update
+        } catch (error) {
+            alert('Error updating tags.');
+            console.error('Update Tags Error:', error);
+        }
+    };
 
-  return (
-    <div className="modal modal-open">
-      <div className="modal-box">
-        <h3 className="font-bold text-lg">Edit Tags</h3>
-        <input
-          type="text"
-          className="input input-bordered w-full mt-4"
-          value={tags}
-          onChange={(e) => setTags(e.target.value)}
-        />
-        <div className="modal-action">
-          <button className="btn" onClick={onClose}>
-            Cancel
-          </button>
-          <button className="btn btn-primary" onClick={handleSave}>
-            Save
-          </button>
+    return (
+        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-50">
+            <div className="bg-white p-6 rounded-md w-96">
+                <h2 className="text-xl mb-4">Edit Tags</h2>
+                <input
+                    type="text"
+                    value={editTags}
+                    onChange={(e) => setEditTags(e.target.value)}
+                    className="input input-bordered w-full mb-4"
+                    placeholder="Enter tags separated by commas"
+                />
+                <div className="flex justify-end space-x-2">
+                    <button className="btn btn-secondary" onClick={onClose}>
+                        Cancel
+                    </button>
+                    <button className="btn btn-primary" onClick={handleSave}>
+                        Save
+                    </button>
+                </div>
+            </div>
         </div>
-      </div>
-    </div>
-  );
+    );
 }
 
 export default TagEditor;
