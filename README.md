@@ -2,6 +2,63 @@
 
 Cloud-based solution with AI-driven tagging, content-based search, and integration capabilities with existing tools
 
+
+## How to Run
+
+Setup `.dev.env`
+```bash
+export WEBPAGE_URL='http://localhost'
+export PG_HOST=localhost
+export PG_PORT=5555
+export PG_USER=postgres
+export PG_PASSWORD=postgres
+export PG_DB=peec_db
+export FASTAPI_SESSION_SECRET_KEY=harsh
+export DROPBOX_CLIENT_ID=
+export DROPBOX_CLIENT_SECRET=
+```
+
+0. Add below to nginx.conf and restart:
+    ```
+        server {
+            listen       80;
+            server_name  localhost;
+            client_max_body_size 100M;
+
+            location /api {
+                proxy_pass http://localhost:8081;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+            }
+            location / {
+                proxy_pass http://localhost:5173;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+            }
+        }
+    ```
+1. Start PG DB
+    ```bash
+    source .dev.env
+    cd backend/database
+    docker compose up
+    ```
+2. Start React server
+    2.0: Change in `frontend/web_app/src/api/api.jsx` to `axios.defaults.baseURL = 'http://localhost/api';`
+    2.1: Start server
+        ```bash
+        cd frontend/web_app
+        npm install
+        npm run dev
+        ```
+3. Start FastAPI server
+    ```bash
+    cd backend
+    conda env create -f env.yaml
+    conda activate peec_env
+    python -m uvicorn api:app --host localhost --port 8081 --reload
+    ```
+
 # Index
 
 2. [Contributors](#contributors)
