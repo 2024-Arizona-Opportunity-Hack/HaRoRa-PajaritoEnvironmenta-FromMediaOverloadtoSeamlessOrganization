@@ -1,7 +1,8 @@
 import axios from 'axios';
 
 // Set the base URL for Axios
-axios.defaults.baseURL = process.env.WEBPAGE_URL + '/api/v1'; // Use environment variable for backend URL
+//axios.defaults.baseURL = process.env.WEBPAGE_URL + '/api/v1'; // Use environment variable for backend URL
+axios.defaults.baseURL = 'http://localhost/api'; // Use environment variable for backend URL
 
 // Auth
 // get profile info
@@ -47,8 +48,10 @@ export const handleLogout = async (setProfile, setError) => {
 // Upload files to the server
 export const uploadFiles = async (files, tags) => {
     const formData = new FormData();
+
     files.forEach((file) => formData.append('files', file));
     formData.append('tags', tags);
+    console.log(files.length);
 
     try {
         const response = await axios.post('/upload', formData, {

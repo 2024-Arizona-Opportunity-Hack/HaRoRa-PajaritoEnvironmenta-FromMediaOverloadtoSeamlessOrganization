@@ -23,7 +23,7 @@ import process as image_processor
 import search as search_expander  # expands query into additional filters
 import structured_llm_output
 
-app = FastAPI(root_path="/api/v1")
+app = FastAPI(root_path="/api")
 file_queue = Queue()
 job_queue = Queue()
 
@@ -129,6 +129,7 @@ def validate_image(file: UploadFile):
     valid_image_formats = {"jpeg", "png", "gif", "bmp", "jpg"}
     # Check the file type using the imghdr module
     file_type = imghdr.what(file.file)
+    print("File type:", file_type)
     if file_type not in valid_image_formats:
         raise HTTPException(status_code=400, detail="Invalid image format")
     return file_type
