@@ -23,7 +23,7 @@ import process as image_processor
 import search as search_expander  # expands query into additional filters
 import structured_llm_output
 
-app = FastAPI()
+app = FastAPI(root_path="/api/v1")
 file_queue = Queue()
 job_queue = Queue()
 
@@ -51,13 +51,13 @@ app.add_middleware(
 # DROPBOX Setup
 AUTH_URI = "https://www.dropbox.com/oauth2/authorize"
 TOKEN_URI = "https://api.dropboxapi.com/oauth2/token"
-CLIENT_URL = "https://peec.harora.lol"
+CLIENT_URL = os.environ["WEBPAGE_URL"]
 
 
 @app.get("/login")
 async def login(request: Request):
-    # redirect_uri = request.url_for('auth_dropbox_callback')
-    redirect_uri = "https://peec.harora.lol/api/auth/dropbox/callback"
+    redirect_uri = request.url_for("auth_dropbox_callback")
+    # redirect_uri = "https://peec.harora.lol/api/auth/dropbox/callback"
     auth_params = {
         "client_id": os.environ["DROPBOX_CLIENT_ID"],
         "redirect_uri": redirect_uri,
@@ -71,8 +71,8 @@ async def login(request: Request):
 @app.get("/auth/dropbox/callback")
 async def auth_dropbox_callback(request: Request):
     auth_code = request.query_params["code"]
-    # redirect_uri = request.url_for('auth_dropbox_callback')
-    redirect_uri = "https://peec.harora.lol/api/auth/dropbox/callback"
+    redirect_uri = request.url_for("auth_dropbox_callback")
+    # redirect_uri = "https://peec.harora.lol/api/auth/dropbox/callback"
     try:
         token_data = {
             "code": auth_code,
@@ -104,10 +104,7 @@ async def auth_dropbox_callback(request: Request):
         }
     except Exception as error:
         return HTMLResponse(f"<h1>{error}</h1>")
-
-    # response_url = f'{request.url.scheme}://{request.url.netloc}'
-    response_url = "https://peec.harora.lol/upload"
-    return RedirectResponse(response_url)
+    return RedirectResponse(CLIENT_URL + "/upload")
 
 
 @app.get("/logout")
