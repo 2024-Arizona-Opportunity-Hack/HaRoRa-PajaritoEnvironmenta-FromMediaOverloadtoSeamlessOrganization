@@ -5,6 +5,19 @@ Cloud-based solution with AI-driven tagging, content-based search, and integrati
 
 ## How to Run
 
+Setup `.dev.env`
+```bash
+export WEBPAGE_URL='http://localhost'
+export PG_HOST=localhost
+export PG_PORT=5555
+export PG_USER=postgres
+export PG_PASSWORD=postgres
+export PG_DB=peec_db
+export FASTAPI_SESSION_SECRET_KEY=harsh
+export DROPBOX_CLIENT_ID=
+export DROPBOX_CLIENT_SECRET=
+```
+
 0. Add below to nginx.conf and restart:
     ```
         server {
