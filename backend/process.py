@@ -1,15 +1,22 @@
 import base64
 import io
 import json
+import logging
 import openai
 import os
+import piexif
+import traceback
 import uuid
-from PIL.ExifTags import TAGS, GPSTAGS
 from PIL import Image
+from PIL.ExifTags import TAGS, GPSTAGS
+from PIL.TiffImagePlugin import IFDRational
 from typing import List
 from pydantic import BaseModel, Field
 
 import structured_llm_output
+
+
+logging.basicConfig(level=logging.INFO)
 
 
 # ===
@@ -152,17 +159,46 @@ def get_image_captioning(image_path: str) -> dict | None:
 # ===
 # Image Metadata Extraction
 # ===
-def get_exif_data(image_path: str) -> dict | None:
+def exif_serialization(obj):
+    """Handle various EXIF object types for JSON serialization."""
+    if isinstance(obj, bytes):
+        return base64.b64encode(obj).decode("utf-8")  # Convert bytes to base64 encoded string
+    elif isinstance(obj, IFDRational):  # Simulating IFDRational by using fractions.Fraction
+        return float(obj)  # Convert IFDRational to float
+    elif isinstance(obj, dict):
+        return {k: exif_serialization(v) for k, v in obj.items()}
+    elif isinstance(obj, tuple):
+        return tuple(exif_serialization(v) for v in obj)
+    return obj
+
+
+def get_exif_data(image_path: str) -> dict:
     """Extract EXIF data from an image."""
-    image = Image.open(image_path)
-    exif_data = image._getexif()  # Retrieve EXIF data
-    if exif_data is None:
-        return None
-    exif = {}
-    for tag, value in exif_data.items():
-        tag_name = TAGS.get(tag, tag)
-        exif[tag_name] = value
-    return exif
+    try:
+        image = Image.open(image_path)
+        exif_data = image._getexif()  # Retrieve EXIF data
+        image.close()
+
+        if exif_data is None:
+            return {}
+
+        exif = {}
+        for tag, value in exif_data.items():
+            tag_name = TAGS.get(tag, tag)
+            exif[tag_name] = value
+
+        serializable_exif = exif_serialization(exif)
+        return serializable_exif
+
+    except FileNotFoundError:
+        logging.error(f"File not found: {image_path}")
+        return {}
+    except IOError:
+        logging.error(f"Error opening file: {image_path}")
+        return {}
+    except Exception as e:
+        logging.error(f"An error occurred: {str(e)}")
+        return {}
 
 
 def get_gps_info(exif):
@@ -194,25 +230,50 @@ def get_gps_info(exif):
 
 def convert_to_degrees(value: tuple[float, float, float]) -> float:
     """Convert the GPS coordinates stored as (degrees, minutes, seconds) into decimal degrees."""
-    d, m, s = value
-    return d + (m / 60.0) + (s / 3600.0)
+    try:
+        d, m, s = value
+        return d + (m / 60.0) + (s / 3600.0)
+    except ValueError:
+        logging.warning(f"Invalid GPS data: {value}")
+        return 0.0
 
 
 def extract_image_metadata(image_path: str):
     """Extract metadata including latitude, longitude, and capture date."""
     img_metadata = {}
-    exif_data = get_exif_data(image_path)
-    if not exif_data:
-        print("No EXIF metadata found.")
-        return
-    img_metadata["capture_date"] = exif_data.get("Date/TimeOriginal", None)
-    gps_info = get_gps_info(exif_data)
-    if gps_info:
-        img_metadata["latitude"] = gps_info.get("Latitude", None)
-        img_metadata["longitude"] = gps_info.get("Longitude", None)
-    else:
-        print("No GPS information found.")
-    return img_metadata
+    try:
+        # Attempt to extract EXIF data
+        exif_data = get_exif_data(image_path)
+        if not exif_data:
+            logging.info("No EXIF metadata found.")
+            return {}
+
+        # Extract capture date
+        img_metadata["capture_date"] = exif_data.get("DateTimeOriginal", None)
+
+        # Extract GPS information
+        gps_info = get_gps_info(exif_data)
+        if gps_info:
+            img_metadata["latitude"] = gps_info.get("Latitude", None)
+            img_metadata["longitude"] = gps_info.get("Longitude", None)
+        else:
+            logging.info("No GPS information found.")
+
+        # Include all remaining EXIF data excluding GPSInfo and DateTimeOriginal
+        for key, value in exif_data.items():
+            img_metadata[key] = value
+
+    except FileNotFoundError:
+        logging.error(f"File not found: {image_path}")
+        return {}
+
+    except IOError as io_err:
+        logging.error(f"IOError occurred when processing file: {image_path}. Error: {io_err}")
+        return {}
+
+    except Exception as e:
+        logging.error(f"An unexpected error occurred while processing the image metadata: {e}")
+        return {}
 
 
 # ===
@@ -227,7 +288,7 @@ model: CLIPModel = CLIPModel.from_pretrained("openai/clip-vit-base-patch32")
 processor: CLIPProcessor = CLIPProcessor.from_pretrained("openai/clip-vit-base-patch32")
 
 
-def get_image_embedding(image_path: str) -> List[float]:
+def get_image_embedding(image_path: str) -> list[float] | None:
     try:
         image = Image.open(image_path)
         inputs = processor(images=image, return_tensors="pt")
@@ -237,13 +298,14 @@ def get_image_embedding(image_path: str) -> List[float]:
         print(e)
 
 
-def get_text_embedding(text: str) -> List[float]:
+def get_text_embedding(text: str) -> list[float] | None:
     try:
         inputs = processor(text=[text], return_tensors="pt")
         outputs = model.get_text_features(**inputs)
         return outputs[0].tolist()
     except Exception as e:
         print(e)
+        return None
 
 
 if __name__ == "__main__":
