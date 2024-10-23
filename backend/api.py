@@ -160,7 +160,10 @@ async def upload_images(request: Request, files: List[UploadFile] = File(...), t
 # Geocoding function
 def get_coordinates(location):
     api_url = f"https://nominatim.openstreetmap.org/search?format=json&q={location}"
-    response = requests.get(api_url)
+    headers = {
+        "User-Agent": "PEECMediaManageMent/1.0 (rohanavad007@gmail.com)"
+    }
+    response = requests.get(api_url, headers=headers)
     data = response.json()
     if data:
         return float(data[0]["lat"]), float(data[0]["lon"])
