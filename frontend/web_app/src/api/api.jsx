@@ -32,16 +32,16 @@ export const handleLogin = async () => {
 };
 
 //logout
-export const handleLogout = async (setProfile, setError) => {
-    axios
+export const handleLogout = async (setProfile) => {
+    await axios
         .get('/logout')
         .then((response) => {
             setProfile(null);
-            setError(null);
+            // setError(null);
         })
         .catch((error) => {
             console.log(error);
-            setError('Error: ' + error.message);
+            // setError('Error: ' + error.message);
         });
 };
 
