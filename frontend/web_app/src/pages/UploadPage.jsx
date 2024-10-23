@@ -18,7 +18,7 @@ function UploadPage() {
 
   // Handle logout
   const handleLogoutClick = async () => {
-    await handleLogout(); // Log out the user
+    await handleLogout(setProfile); // Log out the user
     window.location.reload(); // Refresh the page to reset the authentication state
   };
 

@@ -169,10 +169,11 @@ def insert(
   caption: str,
   tags: str,
   embedded_vector: list[float],
+  user_id: str,
   coordinates: Optional[list[float]] = None,
   capture_time: Optional[str] = None,
   extended_meta: Optional[str] = None,
-  season: Optional[str] = None
+  season: Optional[str] = None,
 ):
     entry = (
         str(uuid.uuid4()),
@@ -182,6 +183,7 @@ def insert(
         caption,
         tags,
         embedded_vector,
+        user_id,
         f"POINT({coordinates[0]} {coordinates[1]})" if coordinates is not None else None,
         capture_time,
         extended_meta,
@@ -189,8 +191,8 @@ def insert(
     )
     insert_query = """
                INSERT INTO image_detail (
-                   uuid, url, thumbnail_url, title, caption, tags, embedding_vector, coordinates, capture_time, extended_meta, season
-               ) VALUES (%s, %s, %s, %s, %s, %s, %s::float8[], ST_GeomFromText(%s), to_timestamp(%s, 'DD/MM/YYYY'), %s::json, %s)
+                   uuid, url, thumbnail_url, title, caption, tags, embedding_vector, user_id, coordinates, capture_time, extended_meta, season
+               ) VALUES (%s, %s, %s, %s, %s, %s, %s::float8[], %s, ST_GeomFromText(%s), to_timestamp(%s, 'DD/MM/YYYY'), %s::json, %s)
            """
     with conn.cursor() as cur:
         cur.execute(insert_query, entry)

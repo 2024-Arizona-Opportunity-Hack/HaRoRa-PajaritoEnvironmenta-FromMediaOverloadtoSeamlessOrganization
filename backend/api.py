@@ -141,6 +141,7 @@ async def upload_images(request: Request, files: List[UploadFile] = File(...), t
     if not user:
         raise HTTPException(status_code=401, detail="Unauthorized")
     access_token = user["access_token"]
+    account_id = user["account_id"]
     uploaded_files: List[dict] = []
     for file in files:
         file_type: str = validate_image(file)
@@ -150,7 +151,7 @@ async def upload_images(request: Request, files: List[UploadFile] = File(...), t
         file_location = f"/tmp/{file_id}.{file_type}"
         with open(file_location, "wb") as buffer:
             buffer.write(await file.read())
-        file_queue.put((file_location, [x.strip() for x in tags.split(",") if x.strip()], access_token, datetime.now()))
+        file_queue.put((file_location, [x.strip() for x in tags.split(",") if x.strip()], access_token, account_id, datetime.now()))
     return {"uploaded_files": uploaded_files}
 
 
@@ -261,7 +262,7 @@ def file_processor():
 # Image Processing
 # ===
 def upload_to_dropbox(access_token, file_path, dropbox_path):
-    url = "https://content.dropboxapi.com/2/files/upload"
+    url = "https://content.dropboxapi.com/2/files/ad"
     headers = {
         "Authorization": f"Bearer {access_token}",
         "Dropbox-API-Arg": json.dumps(
@@ -275,7 +276,7 @@ def upload_to_dropbox(access_token, file_path, dropbox_path):
     return response.json() if response.status_code == 200 else {"error": response.text}
 
 
-def process_file(file_path: str, tags_list: list[str], access_token: str, img_details: dict[str, str | list[str]]):
+def process_file(file_path: str, tags_list: list[str], access_token: str, img_details: dict[str, str | list[str]], account_id: str):
     dropbox_destination_path = "/images/" + os.path.basename(file_path)
     response = upload_to_dropbox(access_token, file_path, dropbox_destination_path)
     url = f"https://www.dropbox.com/home/Apps/PeecMediaManager/images?preview={os.path.basename(file_path)}"
@@ -333,6 +334,7 @@ def process_file(file_path: str, tags_list: list[str], access_token: str, img_de
         capture_time=capture_time_str,
         extended_meta=json.dumps(img_metadata) if img_metadata else None,
         season=season,
+        user_id=account_id
     )
     print(f"Processed file: {file_path}")
 
@@ -363,6 +365,7 @@ def compute_embeddings_and_metadata_and_push_to_db(
             batch_metadata[image_path]["tags"],
             batch_metadata[image_path]["access_token"],
             img_details.model_dump(),
+            batch_metadata[image_path]["account_id"]
         )
         try:
             os.remove(image_path)
