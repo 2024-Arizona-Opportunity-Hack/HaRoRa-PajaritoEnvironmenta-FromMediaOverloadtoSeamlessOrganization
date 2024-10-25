@@ -1,22 +1,23 @@
 import axios from 'axios';
 
 // Set the base URL for Axios
-axios.defaults.baseURL = 'https://peec.harora.lol/api'; // Update this to your backend URL
+//axios.defaults.baseURL = process.env.WEBPAGE_URL + '/api/v1'; // Use environment variable for backend URL
+axios.defaults.baseURL = 'http://localhost/api'; // Use environment variable for backend URL
 
 // Auth
 // get profile info
 export const getProfileInfo = async () => {
-  try {
-    const response = await axios.get('/profile');
-    return { response: response.data, err: null };
-  } catch (error) {
-    console.log(error);
-    if (error.response && error.response.status === 401) {
-      return { response: null, err: 'Please login with Dropbox' };
-    } else {
-      return { response: null, err: 'Error: ' + error.message };
+    try {
+        const response = await axios.get('/profile');
+        return { response: response.data, err: null };
+    } catch (error) {
+        console.log(error);
+        if (error.response && error.response.status === 401) {
+            return { response: null, err: 'Please login with Dropbox' };
+        } else {
+            return { response: null, err: 'Error: ' + error.message };
+        }
     }
-  }
 };
 
 // login
@@ -32,25 +33,27 @@ export const handleLogin = async () => {
 
 //logout
 export const handleLogout = async () => {
-  try {
-    const response = await axios.get('/logout');
-    return response.data;
-  } catch (error) {
-    console.log(error);
-    throw new Error('Error: ' + error.message);
-  }
+    try {
+        const response = await axios.get('/logout');
+        return response.data;
+    } catch (error) {
+        console.log(error);
+        throw new Error('Error: ' + error.message);
+    }
 };
 
 // Upload files to the server with progress tracking
 export const uploadFiles = async (files, tags, onUploadProgress) => {
     const formData = new FormData();
+
     files.forEach((file) => formData.append('files', file));
     formData.append('tags', tags);
+    console.log(files.length);
 
     try {
         const response = await axios.post('/upload', formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-      onUploadProgress, // Attach the progress callback
+            headers: { 'Content-Type': 'multipart/form-data' },
+            onUploadProgress, // Attach the progress callback
         });
         return response.data;
     } catch (error) {
@@ -62,13 +65,8 @@ export const uploadFiles = async (files, tags, onUploadProgress) => {
 // Search for media
 export const searchMedia = async (query, page = 1, pageSize = 10) => {
     try {
-    const response = await axios.get('/search', {
-      params: {
-        q: query,
-        page: page,
-        page_size: pageSize,
-      },
-    });
+        // TODO: (rohan) add pagination support
+        const response = await axios.get('/search', { params: { q: query } });
         return response.data;
     } catch (error) {
         console.error('Error searching media:', error);
@@ -88,23 +86,23 @@ export const getTags = async (uuid) => {
 };
 
 export const updateTags = async (uuid, tags) => {
-  const data = JSON.stringify(tags);
-  const config = {
+    const data = JSON.stringify(tags);
+    const config = {
         method: 'put',
         maxBodyLength: Infinity,
         url: `/tag/${uuid}`,
         headers: {
-      accept: 'application/json',
-      'Content-Type': 'application/json',
+            accept: 'application/json',
+            'Content-Type': 'application/json',
         },
-    data: data,
+        data: data,
     };
 
-  try {
-    const response = await axios.request(config);
-    return response.data;
-  } catch (error) {
-            console.log(error);
-    throw error;
-  }
+    try {
+        const response = await axios.request(config);
+        return response.data;
+    } catch (error) {
+        console.log(error);
+        throw error;
+    }
 };
