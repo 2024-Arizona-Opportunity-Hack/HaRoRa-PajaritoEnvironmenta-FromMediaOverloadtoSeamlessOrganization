@@ -16,6 +16,25 @@ export PG_DB=peec_db
 export FASTAPI_SESSION_SECRET_KEY=harsh
 export DROPBOX_CLIENT_ID=
 export DROPBOX_CLIENT_SECRET=
+export OPENAI_API_KEY=
+export TOGETHER_API_KEY=
+export BATCH_WINDOW_TIME_SECS=10  # 10 secs
+```
+
+-- `.prod.env`
+```bash
+export WEBPAGE_URL='https://peec.harora.lol'
+export PG_HOST=
+export PG_PORT=
+export PG_USER=
+export PG_PASSWORD=
+export PG_DB=
+export FASTAPI_SESSION_SECRET_KEY=
+export DROPBOX_CLIENT_ID=
+export DROPBOX_CLIENT_SECRET=
+export OPENAI_API_KEY=
+export TOGETHER_API_KEY=
+export BATCH_WINDOW_TIME_SECS=14400  # 4 hours
 ```
 
 0. Add below to nginx.conf and restart:
