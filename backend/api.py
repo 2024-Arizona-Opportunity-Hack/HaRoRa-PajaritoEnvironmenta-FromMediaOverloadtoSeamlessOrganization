@@ -26,6 +26,7 @@ import structured_llm_output
 app = FastAPI(root_path="/api")
 file_queue = Queue()
 job_queue = Queue()
+BATCH_WINDOW_TIME_SECS = int(os.environ.get("BATCH_WINDOW_TIME_SECS", 4 * 3600))
 
 
 app.add_middleware(SessionMiddleware, secret_key=os.environ["FASTAPI_SESSION_SECRET_KEY"])
@@ -160,9 +161,7 @@ async def upload_images(request: Request, files: List[UploadFile] = File(...), t
 # Geocoding function
 def get_coordinates(location):
     api_url = f"https://nominatim.openstreetmap.org/search?format=json&q={location}"
-    headers = {
-        "User-Agent": "PEECMediaManageMent/1.0 (rohanavad007@gmail.com)"
-    }
+    headers = {"User-Agent": "PEECMediaManageMent/1.0 (rohanavad007@gmail.com)"}
     response = requests.get(api_url, headers=headers)
     data = response.json()
     if data:
@@ -244,7 +243,7 @@ def file_processor():
             time.sleep(60)
         if not len(files_list):
             continue
-        if len(files_list) > 50 or (datetime.now() - files_list[0][-1] > timedelta(hours=4)):
+        if len(files_list) > 50 or (datetime.now() - files_list[0][-1] > timedelta(seconds=BATCH_WINDOW_TIME_SECS)):
             try:
                 res = image_processor.process_batch(files_list)
                 job_queue.put(res)
