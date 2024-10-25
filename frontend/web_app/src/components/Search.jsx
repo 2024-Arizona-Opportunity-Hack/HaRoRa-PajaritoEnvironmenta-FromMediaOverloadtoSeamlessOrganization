@@ -1,4 +1,11 @@
 // src/components/Search.jsx
+//
+// TODO: (rohan) some sort of feedback for clicking search when already on search page, with the same query
+// TODO: (rohan) dark theme is kinda bad and light is too bright (but we can adjust based on some feedback)
+// TODO: (rohan) color of tags in dark theme is invisible
+// TODO: (rohan) "?q=&page=1"
+// TODO: (rohan) fix pagination
+// TODO: (rohan) delete code which is not used
 
 import { useState, useEffect, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
@@ -10,6 +17,7 @@ function Search() {
     const navigate = useNavigate();
     const queryFromUrl = searchParams.get('q') || '';
     const pageFromUrl = parseInt(searchParams.get('page')) || 1;
+    const queryRef = useRef(null);
 
     const [query, setQuery] = useState(queryFromUrl);
     const [results, setResults] = useState([]);
@@ -40,8 +48,14 @@ function Search() {
 
     // Handle search and update URL
     const handleSearch = () => {
-        setCurrentPage(1);
-        setSearchParams({ q: query, page: 1 });
+        if (queryRef.current) {
+            const searchQuery = queryRef.current.value;
+            setQuery(() => {
+                setCurrentPage(1);
+                setSearchParams({ q: searchQuery, page: 1 });
+                return searchQuery;
+            });
+        }
     };
 
     // Fetch search results
@@ -142,13 +156,12 @@ function Search() {
     return (
         <div className="p-4">
             {/* Search Bar */}
-            <div className="flex mb-4">
+            <div className="flex mb-4 max-w-3xl mx-auto">
                 <input
                     type="text"
                     placeholder="Search..."
                     className="input input-bordered w-full"
-                    value={query}
-                    onChange={(e) => setQuery(e.target.value)}
+                    ref={queryRef}
                     onKeyDown={(e) => {
                         if (e.key === 'Enter') handleSearch();
                     }}
@@ -273,8 +286,8 @@ function Search() {
                     </div>
 
                     {/* Pagination Controls */}
+                    {/*
                     <div className="flex justify-center items-center mt-6 space-x-2">
-                        {/* Previous Button */}
                         <button
                             className="btn btn-sm btn-outline"
                             onClick={() => handlePageChange(currentPage - 1)}
@@ -282,11 +295,7 @@ function Search() {
                         >
                             Previous
                         </button>
-
-                        {/* Page Number Buttons */}
                         {getPaginationButtons()}
-
-                        {/* Next Button */}
                         <button
                             className="btn btn-sm btn-outline"
                             onClick={() => handlePageChange(currentPage + 1)}
@@ -295,6 +304,7 @@ function Search() {
                             Next
                         </button>
                     </div>
+                    */}
                 </>
             )}
 
