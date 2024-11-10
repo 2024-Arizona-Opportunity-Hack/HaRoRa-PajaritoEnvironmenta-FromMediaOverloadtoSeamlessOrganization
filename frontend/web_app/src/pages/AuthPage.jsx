@@ -1,10 +1,11 @@
-// src/pages/AuthPage.jsx
 import React, { useEffect, useState } from 'react';
+import { useNavigate } from 'react-router-dom'; // Import useNavigate
 import { getProfileInfo, handleLogin } from '../api/api'; // Import the necessary API functions
 import DropboxLogo from '../assets/dropbox-1.svg'; // Import Dropbox logo
 
 function AuthPage() {
   const [profile, setProfile] = useState(null);
+  const navigate = useNavigate(); // Initialize the navigate hook
 
   // Fetch the user's profile info on component mount
   useEffect(() => {
@@ -19,6 +20,13 @@ function AuthPage() {
 
     fetchProfile();
   }, []);
+
+  // If the user is logged in, redirect to the Upload page
+  useEffect(() => {
+    if (profile) {
+      navigate('/upload'); // Redirect to /upload if logged in
+    }
+  }, [profile, navigate]);
 
   // If the user is not logged in, show the "Login with Dropbox" button
   if (!profile) {
@@ -39,15 +47,7 @@ function AuthPage() {
     );
   }
 
-  // If the user is logged in, redirect to the Upload page
-  return (
-    <div className="p-4 flex flex-col justify-center items-center h-screen bg-base-100 text-base-content">
-      <h1 className="text-2xl font-bold mb-6">You are already logged in!</h1>
-      <p className="text-lg mb-6">
-        Redirecting to your dashboard...
-      </p>
-    </div>
-  );
+  return null; // Return null since the user is redirected if logged in
 }
 
 export default AuthPage;

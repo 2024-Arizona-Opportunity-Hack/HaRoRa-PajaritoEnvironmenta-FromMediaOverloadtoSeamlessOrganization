@@ -23,9 +23,10 @@ import process as image_processor
 import search as search_expander  # expands query into additional filters
 import structured_llm_output
 
-app = FastAPI(root_path="/api")
+app = FastAPI(root_path="/api/v1")
 file_queue = Queue()
 job_queue = Queue()
+BATCH_WINDOW_TIME_SECS = int(os.environ.get("BATCH_WINDOW_TIME_SECS", 4 * 3600))
 
 
 app.add_middleware(SessionMiddleware, secret_key=os.environ["FASTAPI_SESSION_SECRET_KEY"])
@@ -151,7 +152,9 @@ async def upload_images(request: Request, files: List[UploadFile] = File(...), t
         file_location = f"/tmp/{file_id}.{file_type}"
         with open(file_location, "wb") as buffer:
             buffer.write(await file.read())
-        file_queue.put((file_location, [x.strip() for x in tags.split(",") if x.strip()], access_token, account_id, datetime.now()))
+        file_queue.put(
+            (file_location, [x.strip() for x in tags.split(",") if x.strip()], access_token, account_id, datetime.now())
+        )
     return {"uploaded_files": uploaded_files}
 
 
@@ -161,9 +164,7 @@ async def upload_images(request: Request, files: List[UploadFile] = File(...), t
 # Geocoding function
 def get_coordinates(location):
     api_url = f"https://nominatim.openstreetmap.org/search?format=json&q={location}"
-    headers = {
-        "User-Agent": "PEECMediaManageMent/1.0 (rohanavad007@gmail.com)"
-    }
+    headers = {"User-Agent": "PEECMediaManageMent/1.0 (rohanavad007@gmail.com)"}
     response = requests.get(api_url, headers=headers)
     data = response.json()
     if data:
@@ -245,7 +246,7 @@ def file_processor():
             time.sleep(60)
         if not len(files_list):
             continue
-        if len(files_list) > 50 or (datetime.now() - files_list[0][-1] > timedelta(hours=4)):
+        if len(files_list) > 50 or (datetime.now() - files_list[0][-1] > timedelta(seconds=BATCH_WINDOW_TIME_SECS)):
             try:
                 res = image_processor.process_batch(files_list)
                 job_queue.put(res)
@@ -276,10 +277,12 @@ def upload_to_dropbox(access_token, file_path, dropbox_path):
     return response.json() if response.status_code == 200 else {"error": response.text}
 
 
-def process_file(file_path: str, tags_list: list[str], access_token: str, img_details: dict[str, str | list[str]], account_id: str):
+def process_file(
+    file_path: str, tags_list: list[str], access_token: str, img_details: dict[str, str | list[str]], account_id: str
+):
     dropbox_destination_path = "/images/" + os.path.basename(file_path)
     response = upload_to_dropbox(access_token, file_path, dropbox_destination_path)
-    url = f"https://www.dropbox.com/home/Apps/PeecMediaManager/images?preview={os.path.basename(file_path)}"
+    url = f"https://www.dropbox.com/home/Apps/PEEC Media Management/images?preview={os.path.basename(file_path)}"
     thumbnail_url = image_processor.get_thumbnail(file_path)
 
     print("Getting title, caption, and tags ...")
@@ -334,7 +337,7 @@ def process_file(file_path: str, tags_list: list[str], access_token: str, img_de
         capture_time=capture_time_str,
         extended_meta=json.dumps(img_metadata) if img_metadata else None,
         season=season,
-        user_id=account_id
+        user_id=account_id,
     )
     print(f"Processed file: {file_path}")
 
@@ -365,7 +368,7 @@ def compute_embeddings_and_metadata_and_push_to_db(
             batch_metadata[image_path]["tags"],
             batch_metadata[image_path]["access_token"],
             img_details.model_dump(),
-            batch_metadata[image_path]["account_id"]
+            batch_metadata[image_path]["account_id"],
         )
         try:
             os.remove(image_path)

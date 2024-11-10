@@ -1,48 +1,39 @@
-// src/pages/UploadPage.jsx
 import React, { useState, useEffect } from 'react';
 import Upload from '../components/Upload';
 import { getProfileInfo, handleLogout } from '../api/api'; // Import the necessary API functions
 
 function UploadPage() {
-  const [profile, setProfile] = useState(null);
+    const [profile, setProfile] = useState(null);
 
-  // Fetch the user's profile info on component mount
-  useEffect(() => {
-    const fetchProfile = async () => {
-      const { response } = await getProfileInfo();
-      setProfile(response);
-    };
+    // Fetch the user's profile info on component mount
+    useEffect(() => {
+        const fetchProfile = async () => {
+            const { response } = await getProfileInfo();
+            setProfile(response);
+        };
 
-    fetchProfile();
-  }, []);
+        fetchProfile();
+    }, []);
 
-  // Handle logout
-  const handleLogoutClick = async () => {
-    await handleLogout(setProfile); // Log out the user
-    window.location.reload(); // Refresh the page to reset the authentication state
-  };
+    return (
+        <div className="p-4  text-base-content max-w-3xl mx-auto">
+            <div className="hero  mb-6 rounded-lg">
+                <div className="hero-content text-center">
+                    <div className="max-w-md">
+                        <h1 className="text-3xl font-bold">Upload Media</h1>
+                        {profile && (
+                            <p className="py-6 text-lg">
+                                Welcome, <span className="font-semibold">{profile.name}</span>!
+                            </p>
+                        )}
+                    </div>
+                </div>
+            </div>
 
-  return (
-    <div className="p-4 bg-base-100 text-base-content">
-      <h1 className="text-2xl font-bold my-4">Upload Media</h1>
-      {profile && (
-        <div className="mb-6">
-          <h2 className="text-xl font-bold">Welcome, {profile.name}!</h2>
-          <p>Email: {profile.email}</p>
+            {/* Upload Component */}
+            <Upload />
         </div>
-      )}
-      {/* Upload Component */}
-      <Upload />
-
-      {/* Logout Button */}
-      <button
-        className="btn btn-error mt-4"
-        onClick={handleLogoutClick}
-      >
-        Logout
-      </button>
-    </div>
-  );
+    );
 }
 
 export default UploadPage;
