@@ -3,10 +3,21 @@ EXTENSION IF NOT EXISTS vector;
 CREATE
 EXTENSION IF NOT EXISTS postgis;
 
+CREATE TABLE IF NOT EXISTS users (
+  user_id TEXT PRIMARY KEY,  -- dropbox account
+  user_name TEXT NOT NULL,   -- dropbox username
+  email TEXT NOT NULL,       -- dropbox email
+  access_token TEXT NOT NULL, -- dropbox access token for the user for current app
+  refresh_token TEXT NOT NULL, -- dropbox refresh token once access token expires
+  cursor TEXT               -- optional cursor
+);
+
+
 -- Table creation
-CREATE TABLE image_detail
+CREATE TABLE IF NOT EXISTS image_detail
 (
     uuid                          UUID PRIMARY KEY,
+    user_id TEXT,
     url                           TEXT,
     thumbnail_url                 TEXT,
     title                         TEXT,
@@ -20,7 +31,6 @@ CREATE TABLE image_detail
     capture_time                  TIMESTAMP,
     extended_meta                 JSON,
     season                        TEXT,
-    user_id                       VARCHAR(50),
     updated_at                    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     created_at                    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -48,5 +58,3 @@ CREATE INDEX idx_image_detail_coordinates ON image_detail USING GIST (coordinate
 -- Index creation for searching on the embedding vector
 -- This assumes the use of the pgvector extension or a similar extension
 CREATE INDEX idx_image_detail_embedding ON image_detail USING hnsw (embedding_vector vector_ip_ops);
-
-

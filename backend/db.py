@@ -6,6 +6,7 @@ import psycopg2
 from psycopg2 import sql
 
 import data_models
+from data_models import User
 
 # Connect to the database
 PG_USER = os.environ["PG_USER"]
@@ -22,9 +23,7 @@ def with_connection(func):
 
     def connection(*args, **kwargs):
         # Here, you may even use a connection pool
-        conn = psycopg2.connect(
-            dbname=PG_DB, user=PG_USER, password=PG_PASSWORD, host=PG_HOST, port=PG_PORT
-        )
+        conn = psycopg2.connect(dbname=PG_DB, user=PG_USER, password=PG_PASSWORD, host=PG_HOST, port=PG_PORT)
         try:
             rv = func(conn, *args, **kwargs)
         except Exception as e:
@@ -47,38 +46,46 @@ def create_tables(conn):
         cur.execute(f.read())
     cur.close()
 
+
 @with_connection
-def get_search_query_result(conn,
-                            query_text: str,
-                            query_embedding: list[float],
-                            season: Optional[str] = None,
-                            tags: Optional[list[str]] = None,
-                            coordinates: Optional[list[float]] = None,
-                            distance_radius: Optional[float] = None,
-                            date_from: Optional[str] = None,
-                            date_to: Optional[str] = None,
-                            match_count: Optional[int] = 50,
-                            full_text_weight: Optional[float] = 1,
-                            semantic_weight: Optional[float] = 1,
-                            rrf_k: Optional[int] = 50) -> Optional[
-    List[data_models.ImageDetailResult]]:
-    def get_where_clause_part(season: Optional[str],
-                              tags: Optional[list[str]], coordinates: Optional[list[float]],
-                              distance_radius: Optional[float], date_from: Optional[str],
-                              date_to: Optional[str]) -> str:
+def get_search_query_result(
+    conn,
+    query_text: str,
+    query_embedding: list[float],
+    season: Optional[str] = None,
+    tags: Optional[list[str]] = None,
+    coordinates: Optional[list[float]] = None,
+    distance_radius: Optional[float] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+    match_count: Optional[int] = 50,
+    full_text_weight: Optional[float] = 1,
+    semantic_weight: Optional[float] = 1,
+    rrf_k: Optional[int] = 50,
+) -> Optional[List[data_models.ImageDetailResult]]:
+    def get_where_clause_part(
+        season: Optional[str],
+        tags: Optional[list[str]],
+        coordinates: Optional[list[float]],
+        distance_radius: Optional[float],
+        date_from: Optional[str],
+        date_to: Optional[str],
+    ) -> str:
         where_clause_sql = " WHERE"
         if season is not None:
             where_clause_sql += " season ='{}'".format(season)
         if tags is not None:
             if where_clause_sql != " WHERE":
                 where_clause_sql += " AND"
-            where_clause_sql += " EXISTS (SELECT 1 FROM unnest(STRING_TO_ARRAY(tags, ',')) AS tag WHERE tag = ANY (STRING_TO_ARRAY('{}', ',')))".format(tags)
+            where_clause_sql += " EXISTS (SELECT 1 FROM unnest(STRING_TO_ARRAY(tags, ',')) AS tag WHERE tag = ANY (STRING_TO_ARRAY('{}', ',')))".format(
+                tags
+            )
         if coordinates is not None:
             if where_clause_sql != " WHERE":
                 where_clause_sql += " AND"
-            where_clause_sql += " ST_DWithin(coordinates, ST_MakePoint({}, {})::geography, {})".format(coordinates[0],
-                                                                                                       coordinates[1],
-                                                                                                       distance_radius)
+            where_clause_sql += " ST_DWithin(coordinates, ST_MakePoint({}, {})::geography, {})".format(
+                coordinates[0], coordinates[1], distance_radius
+            )
         if date_from is not None:
             if where_clause_sql != " WHERE":
                 where_clause_sql += " AND"
@@ -88,8 +95,8 @@ def get_search_query_result(conn,
                 where_clause_sql += " AND"
             where_clause_sql += " capture_time <= '{}'".format(date_to)
 
-        #return "" if where_clause_sql == " WHERE" else where_clause_sql
-        return ''
+        # return "" if where_clause_sql == " WHERE" else where_clause_sql
+        return ""
 
     search_query_with_part = f"""
     with fts_ranked_title_caption_tags as (
@@ -114,7 +121,6 @@ def get_search_query_result(conn,
     order by rank_ix
     limit least({match_count}, 30) *2
     )"""
-
 
     search_query_select_part = """
     select
@@ -145,10 +151,13 @@ def get_search_query_result(conn,
         coalesce(1.0 / ({} + semantic.rank_ix), 0.0) * {}
             desc
     limit
-        least({}, 30);""".format(rrf_k, full_text_weight, rrf_k, semantic_weight, match_count)
+        least({}, 30);""".format(
+        rrf_k, full_text_weight, rrf_k, semantic_weight, match_count
+    )
 
-    search_query = (search_query_with_part + search_query_select_part + search_query_where_part +
-                    search_query_order_by_limit_part)
+    search_query = (
+        search_query_with_part + search_query_select_part + search_query_where_part + search_query_order_by_limit_part
+    )
     print(search_query)
 
     with conn.cursor() as cur:
@@ -158,22 +167,20 @@ def get_search_query_result(conn,
         return [data_models.ImageDetailResult(*x) for x in result] if result else None
 
 
-
-
 @with_connection
 def insert(
-  conn,
-  url: str,
-  thumbnail_url: str,
-  title: str,
-  caption: str,
-  tags: str,
-  embedded_vector: list[float],
-  user_id: str,
-  coordinates: Optional[list[float]] = None,
-  capture_time: Optional[str] = None,
-  extended_meta: Optional[str] = None,
-  season: Optional[str] = None,
+    conn,
+    url: str,
+    thumbnail_url: str,
+    title: str,
+    caption: str,
+    tags: str,
+    embedded_vector: list[float],
+    user_id: str,
+    coordinates: Optional[list[float]] = None,
+    capture_time: Optional[str] = None,
+    extended_meta: Optional[str] = None,
+    season: Optional[str] = None,
 ):
     entry = (
         str(uuid.uuid4()),
@@ -187,7 +194,7 @@ def insert(
         f"POINT({coordinates[0]} {coordinates[1]})" if coordinates is not None else None,
         capture_time,
         extended_meta,
-        season
+        season,
     )
     insert_query = """
                INSERT INTO image_detail (
@@ -197,6 +204,7 @@ def insert(
     with conn.cursor() as cur:
         cur.execute(insert_query, entry)
 
+
 @with_connection
 def update_tags(conn, uuid: str, tags: str):
     update_query = """
@@ -205,5 +213,60 @@ def update_tags(conn, uuid: str, tags: str):
     with conn.cursor() as cur:
         cur.execute(update_query, (tags, uuid))
 
-if __name__ == '__main__':
+
+# ===
+# User
+# ===
+
+
+@with_connection
+def create_user(conn, user: User):
+    insert_query = """
+  INSERT INTO users (
+      user_id, user_name, email, access_token, refresh_token, cursor
+  ) VALUES (%s, %s, %s, %s, %s, %s)
+  """
+    with conn.cursor() as cur:
+        cur.execute(
+            insert_query, (user.user_id, user.user_name, user.email, user.access_token, user.refresh_token, user.cursor)
+        )
+
+
+@with_connection
+def read_user(conn, user_id: str) -> Optional[User]:
+    select_query = """
+  SELECT user_id, user_name, email, access_token, refresh_token, cursor
+  FROM users
+  WHERE user_id = %s
+  """
+    with conn.cursor() as cur:
+        cur.execute(select_query, (user_id,))
+        result = cur.fetchone()
+        return User(*result) if result else None
+
+
+@with_connection
+def update_user(conn, user_id: str, user: User):
+    update_query = """
+  UPDATE users SET
+      user_name = %s, email = %s, access_token = %s,
+      refresh_token = %s, cursor = %s
+  WHERE user_id = %s
+  """
+    with conn.cursor() as cur:
+        cur.execute(
+            update_query, (user.user_name, user.email, user.access_token, user.refresh_token, user.cursor, user_id)
+        )
+
+
+@with_connection
+def delete_user(conn, user_id: str):
+    delete_query = """
+  DELETE FROM users WHERE user_id = %s
+  """
+    with conn.cursor() as cur:
+        cur.execute(delete_query, (user_id,))
+
+
+if __name__ == "__main__":
     create_tables()

@@ -103,6 +103,25 @@ async def auth_dropbox_callback(request: Request):
             "account_id": user_info["account_id"],
             "access_token": access_token,
         }
+
+        # check if user exists in DB
+        user = db.read_user(user_info["account_id"])
+        # if no: create one and add to db
+        if user is None:
+            db.create_user(
+                data_models.User(
+                    user_info["account_id"],
+                    user_info["name"]["display_name"],
+                    user_info["email"],
+                    access_token,
+                    refresh_token,
+                )
+            )
+        # if exists: update access_token and refresh_token
+        else:
+            user.access_token = access_token
+            user.refresh_token = refresh_token
+            db.update_user(user.user_id, user)
     except Exception as error:
         return HTMLResponse(f"<h1>{error}</h1>")
     return RedirectResponse(CLIENT_URL + "/upload")
