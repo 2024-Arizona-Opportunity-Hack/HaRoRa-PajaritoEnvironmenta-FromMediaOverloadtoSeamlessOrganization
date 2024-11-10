@@ -28,7 +28,7 @@ function Upload() {
         onDragEnter: () => setIsDragging(true),
         onDragLeave: () => setIsDragging(false),
         multiple: true,
-        accept: 'image/*,video/*',
+        accept: 'image/*',
     });
 
     const handleUpload = async () => {
