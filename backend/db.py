@@ -6,7 +6,7 @@ import psycopg2
 from psycopg2 import sql
 
 import data_models
-from data_models import User
+from data_models import User, FileQueue, BatchQueue
 
 # Connect to the database
 PG_USER = os.environ["PG_USER"]
@@ -266,6 +266,157 @@ def delete_user(conn, user_id: str):
   """
     with conn.cursor() as cur:
         cur.execute(delete_query, (user_id,))
+
+
+# ===
+# FileQueue
+# ===
+@with_connection
+def create_file_queue(conn, file_queue: FileQueue):
+    insert_query = """
+    INSERT INTO FileQueue (
+        tmp_file_loc, tag_list, access_token, user_id, batch_id,
+        is_saved_to_db, is_cleaned_from_disk
+    ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            insert_query,
+            (
+                file_queue.tmp_file_loc,
+                file_queue.tag_list,
+                file_queue.access_token,
+                file_queue.user_id,
+                file_queue.batch_id,
+                file_queue.is_saved_to_db,
+                file_queue.is_cleaned_from_disk,
+            ),
+        )
+
+
+@with_connection
+def read_file_queue(conn, tmp_file_loc: str) -> Optional[FileQueue]:
+    select_query = """
+    SELECT tmp_file_loc, tag_list, access_token, user_id, batch_id,
+           is_saved_to_db, is_cleaned_from_disk
+    FROM FileQueue
+    WHERE tmp_file_loc = %s
+    """
+    with conn.cursor() as cur:
+        cur.execute(select_query, (tmp_file_loc,))
+        result = cur.fetchone()
+        return FileQueue(*result) if result else None
+
+
+@with_connection
+def update_file_queue(conn, tmp_file_loc: str, file_queue: FileQueue):
+    update_query = """
+    UPDATE FileQueue SET
+        tag_list = %s, access_token = %s, user_id = %s, batch_id = %s,
+        is_saved_to_db = %s, is_cleaned_from_disk = %s
+    WHERE tmp_file_loc = %s
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            update_query,
+            (
+                file_queue.tag_list,
+                file_queue.access_token,
+                file_queue.user_id,
+                file_queue.batch_id,
+                file_queue.is_saved_to_db,
+                file_queue.is_cleaned_from_disk,
+                tmp_file_loc,
+            ),
+        )
+
+
+@with_connection
+def delete_file_queue(conn, tmp_file_loc: str):
+    delete_query = """
+    DELETE FROM FileQueue WHERE tmp_file_loc = %s
+    """
+    with conn.cursor() as cur:
+        cur.execute(delete_query, (tmp_file_loc,))
+
+
+# ===
+# BatchQueue
+# ===
+@with_connection
+def create_batch_queue(conn, batch_queue: BatchQueue):
+    insert_query = """
+    INSERT INTO BatchQueue (
+        batch_id, input_file_id, batch_jsonl_filepath, batch_metadata_filepath, status,
+        output_file_id, are_all_files_updated_in_db,
+        are_files_deleted_from_oai_storage, is_cleaned_from_disk
+    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            insert_query,
+            (
+                batch_queue.batch_id,
+                batch_queue.input_file_id,
+                batch_queue.batch_jsonl_filepath,
+                batch_queue.batch_metadata_filepath,
+                batch_queue.status,
+                batch_queue.output_file_id,
+                batch_queue.are_all_files_updated_in_db,
+                batch_queue.are_files_deleted_from_oai_storage,
+                batch_queue.is_cleaned_from_disk,
+            ),
+        )
+
+
+@with_connection
+def read_batch_queue(conn, batch_id: str) -> Optional[BatchQueue]:
+    select_query = """
+    SELECT batch_id, input_file_id, batch_jsonl_filepath, batch_metadata_filepath, status,
+           output_file_id, are_all_files_updated_in_db, are_files_deleted_from_oai_storage,
+           is_cleaned_from_disk
+    FROM BatchQueue
+    WHERE batch_id = %s
+    """
+    with conn.cursor() as cur:
+        cur.execute(select_query, (batch_id,))
+        result = cur.fetchone()
+        return BatchQueue(*result) if result else None
+
+
+@with_connection
+def update_batch_queue(conn, batch_id: str, batch_queue: BatchQueue):
+    update_query = """
+    UPDATE BatchQueue SET
+        input_file_id = %s, batch_jsonl_filepath = %s, batch_metadata_filepath = %s,
+        status = %s, output_file_id = %s, are_all_files_updated_in_db = %s,
+        are_files_deleted_from_oai_storage = %s, is_cleaned_from_disk = %s
+    WHERE batch_id = %s
+    """
+    with conn.cursor() as cur:
+        cur.execute(
+            update_query,
+            (
+                batch_queue.input_file_id,
+                batch_queue.batch_jsonl_filepath,
+                batch_queue.batch_metadata_filepath,
+                batch_queue.status,
+                batch_queue.output_file_id,
+                batch_queue.are_all_files_updated_in_db,
+                batch_queue.are_files_deleted_from_oai_storage,
+                batch_queue.is_cleaned_from_disk,
+                batch_id,
+            ),
+        )
+
+
+@with_connection
+def delete_batch_queue(conn, batch_id: str):
+    delete_query = """
+    DELETE FROM BatchQueue WHERE batch_id = %s
+    """
+    with conn.cursor() as cur:
+        cur.execute(delete_query, (batch_id,))
 
 
 if __name__ == "__main__":

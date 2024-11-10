@@ -35,6 +35,31 @@ CREATE TABLE IF NOT EXISTS image_detail
     created_at                    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+
+CREATE TABLE IF NOT EXISTS FileQueue (
+  tmp_file_loc TEXT PRIMARY KEY,
+  tag_list TEXT NOT NULL,
+  access_token TEXT NOT NULL,
+  user_id TEXT NOT NULL,
+  batch_id TEXT,
+  is_saved_to_db BOOLEAN DEFAULT FALSE,
+  is_cleaned_from_disk BOOLEAN DEFAULT FALSE
+  updated_at                    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  created_at                    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS BatchQueue (
+  batch_id TEXT PRIMARY KEY,
+  input_file_id TEXT NOT NULL,
+  batch_jsonl_filepath TEXT NOT NULL,
+  batch_metadata_filepath TEXT NOT NULL,
+  status TEXT DEFAULT 'submitted',
+  output_file_id TEXT,
+  are_all_files_updated_in_db BOOLEAN DEFAULT FALSE,
+  are_files_deleted_from_oai_storage BOOLEAN DEFAULT FALSE,
+  is_cleaned_from_disk BOOLEAN DEFAULT FALSE
+);
+
 CREATE
 OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
