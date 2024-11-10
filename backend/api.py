@@ -23,7 +23,7 @@ import process as image_processor
 import search as search_expander  # expands query into additional filters
 import structured_llm_output
 
-app = FastAPI(root_path="/api")
+app = FastAPI(root_path="/api/v1")
 file_queue = Queue()
 job_queue = Queue()
 BATCH_WINDOW_TIME_SECS = int(os.environ.get("BATCH_WINDOW_TIME_SECS", 4 * 3600))
@@ -277,7 +277,7 @@ def upload_to_dropbox(access_token, file_path, dropbox_path):
 def process_file(file_path: str, tags_list: list[str], access_token: str, img_details: dict[str, str | list[str]]):
     dropbox_destination_path = "/images/" + os.path.basename(file_path)
     response = upload_to_dropbox(access_token, file_path, dropbox_destination_path)
-    url = f"https://www.dropbox.com/home/Apps/PeecMediaManager/images?preview={os.path.basename(file_path)}"
+    url = f"https://www.dropbox.com/home/Apps/PEEC Media Management/images?preview={os.path.basename(file_path)}"
     thumbnail_url = image_processor.get_thumbnail(file_path)
 
     print("Getting title, caption, and tags ...")

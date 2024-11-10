@@ -1,7 +1,7 @@
 .venv
 .vscode
 node_modules
-.ssl
-.env
+*.ssl
+*.env
 *.prod.env
 .DS_Store
