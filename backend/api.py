@@ -170,7 +170,8 @@ async def upload_images(request: Request, files: List[UploadFile] = File(...), t
         file_id: str = str(uuid.uuid4())
         uploaded_files.append({"file_id": file_id, "name": file.filename, "type": file_type, "tags": tags})
         # store the img in /tmp dir
-        file_location = f"/tmp/{file_id}.{file_type}"
+        file_location = os.path.join("/tmp", account_id, f"{file_id}.{file_type}")  # Download to the folder
+        os.makedirs(os.path.dirname(file_location), exist_ok=True)
         with open(file_location, "wb") as buffer:
             buffer.write(await file.read())
         db.create_file_queue(data_models.FileQueue(file_location, tags, access_token, account_id))
@@ -592,10 +593,82 @@ def garbage_collector():
         time.sleep(24 * 3600)  # run once a day
 
 
+# ===
+# Poller
+# ===
+def list_dropbox_folder(access_token: str, filepath: str, cursor: str | None = None) -> dict:
+    headers: dict = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
+    if cursor is None:
+        url = "https://api.dropboxapi.com/2/files/list_folder"
+        data: dict = {
+            "include_deleted": False,
+            "include_has_explicit_shared_members": True,
+            "include_media_info": True,
+            "include_mounted_folders": True,
+            "include_non_downloadable_files": False,
+            "path": filepath,
+            "recursive": True,
+        }
+    else:
+        url = "https://api.dropboxapi.com/2/files/list_folder/continue"
+        data = {"cursor": cursor}
+    response = requests.post(url, headers=headers, json=data)
+    return response.json()
+
+
+def pol_from_dropbox():
+    while True:
+        # get all users
+        users_list = db.get_all_users()
+        for user in users_list:
+            print(f"Looking into user: {user.user_name}")
+            ROOT_PATH = "/Apps/PEEC Media Management/images"
+            while True:
+                res = list_dropbox_folder(user.access_token, ROOT_PATH, user.cursor)
+                user.cursor = res["cursor"]
+                for ent in res["entries"]:
+                    handle_dropbox_files(ent, user.access_token, user.user_id)
+                if not res["has_more"]:
+                    break
+            db.update_user(user.user_id, user)
+
+        time.sleep(24 * 3600)  # once in a day
+
+
+def handle_dropbox_files(ent, access_token, user_id):
+    print(f'Handling {ent["name"]} file')
+    if ent[".tag"] != "file":
+        return None
+    if not (ent["name"].lower().endswith((".jpg", ".jpeg", ".png"))):
+        return None
+    # check if already processed in DB
+    url = f"https://www.dropbox.com/home{os.path.dirname(ent['path_display'])}?preview={ent['name']}"
+    if db.check_image_exists(url, user_id):
+        return None
+    # check if in queue
+    file_name = ent["name"]
+    file_path = os.path.join("/tmp", user_id, file_name)  # Download to the folder
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    if db.read_file_queue(file_path) is not None:
+        return None
+    # Download the file
+    download_url = "https://content.dropboxapi.com/2/files/download"
+    download_headers = {
+        "Authorization": f"Bearer {access_token}",
+        "Dropbox-API-Arg": f"{{\"path\": \"{ent['path_display']}\"}}",
+    }
+    file_response = requests.post(download_url, headers=download_headers)
+    with open(file_path, "wb") as f:
+        f.write(file_response.content)
+    print(f" Downloaded: {file_name} to {file_path}")
+    db.create_file_queue(data_models.FileQueue(file_path, "", access_token, user_id))
+
+
 # Start a background thread for processing files
 threading.Thread(target=file_processor, daemon=True).start()
 threading.Thread(target=job_processor, daemon=True).start()
 threading.Thread(target=garbage_collector, daemon=True).start()
+threading.Thread(target=pol_from_dropbox, daemon=True).start()
 
 
 if __name__ == "__main__":

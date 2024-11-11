@@ -147,9 +147,6 @@ def get_search_query_result(
     }
     filled_query = search_query % params
     print("Executing query:", filled_query)
-    import pyperclip
-
-    pyperclip.copy(filled_query)
 
     # Execute the query
     with conn.cursor() as cur:
@@ -203,6 +200,21 @@ def update_tags(conn, uuid: str, tags: str):
 
     with conn.cursor() as cur:
         cur.execute(update_query, (tags, uuid))
+
+
+@with_connection
+def check_image_exists(conn, url: str, user_id: str) -> bool:
+    check_query = """
+    SELECT EXISTS (
+        SELECT 1 FROM image_detail WHERE url = %s AND user_id = %s
+    )
+    """
+    params = (url, user_id)
+    with conn.cursor() as cur:
+        cur.execute(check_query, params)
+        res = cur.fetchone()
+        print(res)
+        return res[0]
 
 
 # ===
@@ -268,6 +280,18 @@ def delete_user(conn, user_id: str):
   """
     with conn.cursor() as cur:
         cur.execute(delete_query, (user_id,))
+
+
+@with_connection
+def get_all_users(conn) -> List[User]:
+    select_query = """
+    SELECT user_id, user_name, email, access_token, refresh_token, template_id, cursor
+    FROM users
+    """
+    with conn.cursor() as cur:
+        cur.execute(select_query)
+        results = cur.fetchall()
+        return [User(*result) for result in results] if results else []
 
 
 # ===
