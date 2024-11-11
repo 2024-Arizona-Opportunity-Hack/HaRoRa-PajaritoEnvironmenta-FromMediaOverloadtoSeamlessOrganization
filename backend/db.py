@@ -52,6 +52,7 @@ def get_search_query_result(
     conn,
     query_text: str,
     query_embedding: list[float],
+    user_id: str,
     season: Optional[str] = None,
     tags: Optional[list[str]] = None,
     coordinates: Optional[list[float]] = None,
@@ -63,68 +64,50 @@ def get_search_query_result(
     semantic_weight: Optional[float] = 1,
     rrf_k: Optional[int] = 50,
 ) -> Optional[List[data_models.ImageDetailResult]]:
-    def get_where_clause_part(
-        season: Optional[str],
-        tags: Optional[list[str]],
-        coordinates: Optional[list[float]],
-        distance_radius: Optional[float],
-        date_from: Optional[str],
-        date_to: Optional[str],
-    ) -> str:
-        where_clause_sql = " WHERE"
-        if season is not None:
-            where_clause_sql += " season ='{}'".format(season)
-        if tags is not None:
-            if where_clause_sql != " WHERE":
-                where_clause_sql += " AND"
-            where_clause_sql += " EXISTS (SELECT 1 FROM unnest(STRING_TO_ARRAY(tags, ',')) AS tag WHERE tag = ANY (STRING_TO_ARRAY('{}', ',')))".format(
-                tags
-            )
-        if coordinates is not None:
-            if where_clause_sql != " WHERE":
-                where_clause_sql += " AND"
-            where_clause_sql += " ST_DWithin(coordinates, ST_MakePoint({}, {})::geography, {})".format(
-                coordinates[0], coordinates[1], distance_radius
-            )
-        if date_from is not None:
-            if where_clause_sql != " WHERE":
-                where_clause_sql += " AND"
-            where_clause_sql += " capture_time >= '{}'".format(date_from)
-        if date_to is not None:
-            if where_clause_sql != " WHERE":
-                where_clause_sql += " AND"
-            where_clause_sql += " capture_time <= '{}'".format(date_to)
-
-        # return "" if where_clause_sql == " WHERE" else where_clause_sql
-        return ""
-
-    search_query_with_part = f"""
-    with fts_ranked_title_caption_tags as (
-            select
+    # Build the main SQL query
+    search_query = f"""
+    WITH fts_ranked_title_caption_tags AS (
+        SELECT
             uuid,
-            -- Note: ts_rank_cd is not indexable but will only rank matches of the where clause
-            -- which shouldn't be too big
-            row_number() over(order by ts_rank_cd(title_caption_tags_fts_vector, websearch_to_tsquery('{query_text}')) desc) as rank_ix
-    from
-        image_detail
-    where
-        title_caption_tags_fts_vector @@ websearch_to_tsquery('{query_text}')
-    order by rank_ix
-    limit least({match_count}, 30) * 2
+            row_number() OVER (
+                ORDER BY ts_rank_cd(title_caption_tags_fts_vector, websearch_to_tsquery(%(query_text)s)) DESC
+            ) AS rank_ix
+        FROM image_detail
+        WHERE title_caption_tags_fts_vector @@ websearch_to_tsquery(%(query_text)s)
+        AND user_id = %(user_id)s
+        AND COALESCE(season = COALESCE(%(season)s, season), TRUE)
+        AND COALESCE((%(longitude)s IS NULL OR %(latitude)s IS NULL OR ST_DWithin(
+            coordinates,
+            ST_MakePoint(%(longitude)s, %(latitude)s)::geography,
+            %(distance_radius)s
+        )), TRUE)
+        AND COALESCE(capture_time >= COALESCE(%(date_from)s, capture_time), TRUE)
+        AND COALESCE(capture_time <= COALESCE(%(date_to)s, capture_time), TRUE)
+        ORDER BY rank_ix
+        LIMIT LEAST(%(match_count)s, 30) * 2
     ),
-    semantic as (
-        select
+    semantic AS (
+        SELECT
             uuid,
-            row_number() over(order by image_detail.embedding_vector <#> ARRAY{query_embedding}::vector) as rank_ix
-    from
-        image_detail
-    order by rank_ix
-    limit least({match_count}, 30) *2
-    )"""
-
-    search_query_select_part = """
-    select
+            row_number() OVER (
+                ORDER BY image_detail.embedding_vector <#> %(query_embedding)s::vector
+            ) AS rank_ix
+        FROM image_detail
+        WHERE user_id = %(user_id)s
+        AND COALESCE(season = COALESCE(%(season)s, season), TRUE)
+        AND COALESCE((%(longitude)s IS NULL OR %(latitude)s IS NULL OR ST_DWithin(
+            coordinates,
+            ST_MakePoint(%(longitude)s, %(latitude)s)::geography,
+            %(distance_radius)s
+        )), TRUE)
+        AND COALESCE(capture_time >= COALESCE(%(date_from)s, capture_time), TRUE)
+        AND COALESCE(capture_time <= COALESCE(%(date_to)s, capture_time), TRUE)
+        ORDER BY rank_ix
+        LIMIT LEAST(%(match_count)s, 30) * 2
+    )
+    SELECT
         image_detail.url,
+        image_detail.user_id,
         image_detail.thumbnail_url,
         image_detail.title,
         image_detail.caption,
@@ -136,34 +119,42 @@ def get_search_query_result(
         image_detail.uuid,
         image_detail.updated_at,
         image_detail.created_at
-    from
-        fts_ranked_title_caption_tags
-            full outer join semantic
-                            on fts_ranked_title_caption_tags.uuid = semantic.uuid
-            join image_detail
-                 on coalesce(fts_ranked_title_caption_tags.uuid, semantic.uuid) = image_detail.uuid"""
+    FROM fts_ranked_title_caption_tags
+        FULL OUTER JOIN semantic ON fts_ranked_title_caption_tags.uuid = semantic.uuid
+        JOIN image_detail ON COALESCE(fts_ranked_title_caption_tags.uuid, semantic.uuid) = image_detail.uuid
+    ORDER BY
+        COALESCE(1.0 / (%(rrf_k)s + fts_ranked_title_caption_tags.rank_ix), 0.0) * %(full_text_weight)s +
+        COALESCE(1.0 / (%(rrf_k)s + semantic.rank_ix), 0.0) * %(semantic_weight)s DESC
+    LIMIT LEAST(%(match_count)s, 30);
+    """
 
-    search_query_where_part = get_where_clause_part(season, tags, coordinates, distance_radius, date_from, date_to)
+    # Define the parameters for the query
+    params = {
+        "query_text": query_text,
+        "query_embedding": query_embedding,
+        "user_id": user_id,
+        "season": season,
+        "tags": ",".join(tags) if tags else None,
+        "longitude": coordinates[0] if coordinates else None,
+        "latitude": coordinates[1] if coordinates else None,
+        "distance_radius": distance_radius,
+        "date_from": date_from,
+        "date_to": date_to,
+        "match_count": match_count,
+        "full_text_weight": full_text_weight,
+        "semantic_weight": semantic_weight,
+        "rrf_k": rrf_k,
+    }
+    filled_query = search_query % params
+    print("Executing query:", filled_query)
+    import pyperclip
 
-    search_query_order_by_limit_part = """
-    order by
-        coalesce(1.0 / ({} + fts_ranked_title_caption_tags.rank_ix), 0.0) * {} +
-        coalesce(1.0 / ({} + semantic.rank_ix), 0.0) * {}
-            desc
-    limit
-        least({}, 30);""".format(
-        rrf_k, full_text_weight, rrf_k, semantic_weight, match_count
-    )
+    pyperclip.copy(filled_query)
 
-    search_query = (
-        search_query_with_part + search_query_select_part + search_query_where_part + search_query_order_by_limit_part
-    )
-    print(search_query)
-
+    # Execute the query
     with conn.cursor() as cur:
-        cur.execute(sql.SQL(search_query))
+        cur.execute(sql.SQL(search_query), params)
         result = cur.fetchall()
-        # print(result)
         return [data_models.ImageDetailResult(*x) for x in result] if result else None
 
 

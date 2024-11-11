@@ -192,7 +192,11 @@ def get_coordinates(location):
 
 
 @app.get("/search")
-async def search_files(q: str = None):
+async def search_files(request: Request, q: str = None):
+    user = request.session.get("user")
+    if not user:
+        raise HTTPException(status_code=401, detail="Unauthorized")
+
     query = q
     print("query:", query)
     if query:
@@ -210,6 +214,7 @@ async def search_files(q: str = None):
         results = db.get_search_query_result(
             query,
             query_embedding,
+            user["account_id"],
             search_args.season,
             ",".join(search_args.tags),
             coords,
