@@ -220,22 +220,32 @@ def update_tags(conn, uuid: str, tags: str):
 
 
 @with_connection
-def create_user(conn, user: User):
+def create_user(conn, user: User) -> None:
     insert_query = """
-  INSERT INTO users (
-      user_id, user_name, email, access_token, refresh_token, cursor
-  ) VALUES (%s, %s, %s, %s, %s, %s)
-  """
+    INSERT INTO users (
+      user_id, user_name, email, access_token, refresh_token, template_id, cursor
+    ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+    """
+    params = (
+        user.user_id,
+        user.user_name,
+        user.email,
+        user.access_token,
+        user.refresh_token,
+        user.template_id,
+        user.cursor,
+    )
+    filled_query = insert_query % params
+    print("Executing query:", filled_query)
+
     with conn.cursor() as cur:
-        cur.execute(
-            insert_query, (user.user_id, user.user_name, user.email, user.access_token, user.refresh_token, user.cursor)
-        )
+        cur.execute(insert_query, params)
 
 
 @with_connection
 def read_user(conn, user_id: str) -> Optional[User]:
     select_query = """
-  SELECT user_id, user_name, email, access_token, refresh_token, cursor
+  SELECT user_id, user_name, email, access_token, refresh_token, template_id, cursor
   FROM users
   WHERE user_id = %s
   """
@@ -250,12 +260,13 @@ def update_user(conn, user_id: str, user: User):
     update_query = """
   UPDATE users SET
       user_name = %s, email = %s, access_token = %s,
-      refresh_token = %s, cursor = %s
+      refresh_token = %s, template_id = %s, cursor = %s
   WHERE user_id = %s
   """
     with conn.cursor() as cur:
         cur.execute(
-            update_query, (user.user_name, user.email, user.access_token, user.refresh_token, user.cursor, user_id)
+            update_query,
+            (user.user_name, user.email, user.access_token, user.refresh_token, user.template_id, user.cursor, user_id),
         )
 
 

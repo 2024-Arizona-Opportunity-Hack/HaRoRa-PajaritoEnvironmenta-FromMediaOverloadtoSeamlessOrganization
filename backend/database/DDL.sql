@@ -9,6 +9,7 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT NOT NULL,       -- dropbox email
   access_token TEXT NOT NULL, -- dropbox access token for the user for current app
   refresh_token TEXT NOT NULL, -- dropbox refresh token once access token expires
+  template_id TEXT NOT NULL,
   cursor TEXT,               -- optional cursor
   updated_at                    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   created_at                    TIMESTAMP DEFAULT CURRENT_TIMESTAMP

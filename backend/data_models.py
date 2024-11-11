@@ -35,6 +35,7 @@ class User:
     email: str  # dropbox email
     access_token: str  # dropbox access token for the user for current app
     refresh_token: str  # dropbox refresh token once access token expires
+    template_id: str  # dropbox properties template
     cursor: Optional[str] = None
 
 

@@ -101,7 +101,9 @@ async def auth_dropbox_callback(request: Request):
             "account_id": user_info["account_id"],
             "access_token": access_token,
         }
-
+        # create folder
+        create_dropbox_folder(access_token, "/Apps/PEEC Media Management")
+        template_id = create_dropbox_template(access_token)
         # check if user exists in DB
         user = db.read_user(user_info["account_id"])
         # if no: create one and add to db
@@ -113,12 +115,14 @@ async def auth_dropbox_callback(request: Request):
                     user_info["email"],
                     access_token,
                     refresh_token,
+                    template_id,
                 )
             )
         # if exists: update access_token and refresh_token
         else:
             user.access_token = access_token
             user.refresh_token = refresh_token
+            user.template_id = template_id
             db.update_user(user.user_id, user)
     except Exception as error:
         return HTMLResponse(f"<h1>{error}</h1>")
@@ -235,6 +239,70 @@ async def search_files(q: str = None):
 
 
 # ===
+# Utils
+# ===
+def create_dropbox_folder(access_token, folder_path):
+    url = "https://api.dropboxapi.com/2/files/create_folder_v2"
+    headers = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
+    data = {"path": folder_path, "autorename": False}
+    try:
+        response = requests.post(url, headers=headers, json=data)
+
+        if response.status_code == 200:
+            return "Folder created successfully."
+        elif response.status_code == 409:
+            return "Folder already exists. No action taken."
+        else:
+            response.raise_for_status()
+    except requests.exceptions.RequestException as e:
+        print(f"Error creating folder: {str(e)}")
+
+
+def create_dropbox_template(access_token):
+    # API endpoints
+    add_template_url = "https://api.dropboxapi.com/2/file_properties/templates/add_for_user"
+    list_templates_url = "https://api.dropboxapi.com/2/file_properties/templates/list_for_user"
+
+    headers = {
+        "Authorization": f"Bearer {access_token}",
+    }
+
+    # Template data
+    template_data = {
+        "description": "These properties describe the images in the folder.",
+        "fields": [
+            {"description": "This is the caption of the image.", "name": "Caption", "type": "string"},
+            {"description": "This is the title of the image.", "name": "Title", "type": "string"},
+        ],
+        "name": "Image Info",
+    }
+
+    # Check if template already exists
+    response = requests.post(list_templates_url, headers=headers)
+    response.raise_for_status()
+    existing_templates = response.json().get("template_ids", [])
+
+    for template_id in existing_templates:
+        template_info_url = f"https://api.dropboxapi.com/2/file_properties/templates/get_for_user"
+        template_info_data = {"template_id": template_id}
+        template_info_response = requests.post(template_info_url, headers=headers, json=template_info_data)
+        template_info_response.raise_for_status()
+        template_info = template_info_response.json()
+
+        if (
+            template_info["name"] == template_data["name"]
+            and len(template_info["fields"]) == len(template_data["fields"])
+            and all(field["name"] in [f["name"] for f in template_data["fields"]] for field in template_info["fields"])
+        ):
+            return template_id
+
+    # If template doesn't exist, create it
+    response = requests.post(add_template_url, headers=headers, json=template_data)
+    response.raise_for_status()
+    return response.json()["template_id"]
+
+
+# ===
 # Tags Endpoint
 # ===
 
@@ -288,7 +356,7 @@ def file_processor():
 # Image Processing
 # ===
 def upload_to_dropbox(access_token, file_path, dropbox_path):
-    url = "https://content.dropboxapi.com/2/files/ad"
+    url = "https://content.dropboxapi.com/2/files/upload"
     headers = {
         "Authorization": f"Bearer {access_token}",
         "Dropbox-API-Arg": json.dumps(
@@ -302,20 +370,55 @@ def upload_to_dropbox(access_token, file_path, dropbox_path):
     return response.json() if response.status_code == 200 else {"error": response.text}
 
 
+def add_tag_to_dropbox_file(access_token: str, path: str, tag_text: str) -> None:
+    url: str = "https://api.dropboxapi.com/2/files/tags/add"
+    headers: dict = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
+    data: dict = {"path": path, "tag_text": tag_text}
+
+    response: requests.Response = requests.post(url, headers=headers, data=json.dumps(data))
+    if response.status_code == 200:
+        print("Tag added successfully.")
+    else:
+        print(f"Error occurred: {response.status_code}, {response.text}")
+
+
 def process_file(
     file_path: str, tags_list: list[str], access_token: str, img_details: dict[str, str | list[str]], account_id: str
 ):
-    dropbox_destination_path = "/images/" + os.path.basename(file_path)
+    dropbox_destination_path = "/Apps/PEEC Media Management/images/" + os.path.basename(file_path)
     response = upload_to_dropbox(access_token, file_path, dropbox_destination_path)
+    print(response)
     url = f"https://www.dropbox.com/home/Apps/PEEC Media Management/images?preview={os.path.basename(file_path)}"
     thumbnail_url = image_processor.get_thumbnail(file_path)
 
     print("Getting title, caption, and tags ...")
-    while True:
-        title = img_details["title"]
-        caption = img_details["image_description"]
-        tags = ",".join(tags_list + img_details["tags"])
-        break
+    title = img_details["title"]
+    caption = img_details["image_description"]
+    final_tags_list = tags_list + img_details["tags"]
+    tags = ",".join(final_tags_list)
+    # push tags to dropbox
+    for t in final_tags_list:
+        add_tag_to_dropbox_file(access_token, dropbox_destination_path, t.replace(" ", "_"))
+    # get template id for curr user
+    user = db.read_user(account_id)
+    template_id = user.template_id
+    # push title and caption property for that image to dropbox
+    payload_data = {
+        "path": dropbox_destination_path,
+        "property_groups": [
+            {
+                "fields": [{"name": "Title", "value": title}, {"name": "Caption", "value": caption}],
+                "template_id": template_id,
+            }
+        ],
+    }
+    res = requests.post(
+        "https://api.dropboxapi.com/2/file_properties/properties/add",
+        json=payload_data,
+        headers={"Authorization": f"Bearer {access_token}"},
+    )
+    if res.status_code != 200 and res.status_code != 409:
+        res.raise_for_status()
 
     print("Getting image embeddings ...")
     while True:
