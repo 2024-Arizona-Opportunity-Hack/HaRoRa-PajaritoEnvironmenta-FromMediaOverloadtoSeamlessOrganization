@@ -24,8 +24,6 @@ import search as search_expander  # expands query into additional filters
 import structured_llm_output
 
 app = FastAPI(root_path="/api/v1")
-file_queue = Queue()
-job_queue = Queue()
 BATCH_WINDOW_TIME_SECS = int(os.environ.get("BATCH_WINDOW_TIME_SECS", 4 * 3600))
 
 
@@ -171,9 +169,7 @@ async def upload_images(request: Request, files: List[UploadFile] = File(...), t
         file_location = f"/tmp/{file_id}.{file_type}"
         with open(file_location, "wb") as buffer:
             buffer.write(await file.read())
-        file_queue.put(
-            (file_location, [x.strip() for x in tags.split(",") if x.strip()], access_token, account_id, datetime.now())
-        )
+        db.create_file_queue(data_models.FileQueue(file_location, tags, access_token, account_id))
     return {"uploaded_files": uploaded_files}
 
 
@@ -252,30 +248,40 @@ async def update_tags(file_id: str, tags: List[str]):
 # ===
 # Submit Batch Job to OAI
 # ===
-open("dlq", "w").close()
-
-
 def file_processor():
-    files_list = []
     while True:
-        if not file_queue.empty():
-            file_details = file_queue.get()
-            files_list.append(file_details)
-        else:
-            time.sleep(60)
-        if not len(files_list):
-            continue
-        if len(files_list) > 50 or (datetime.now() - files_list[0][-1] > timedelta(seconds=BATCH_WINDOW_TIME_SECS)):
-            try:
-                res = image_processor.process_batch(files_list)
-                job_queue.put(res)
-                print(f"Submitted job with id: {res[0]} to OpenAI")
-            except Exception as e:
-                print(e)
-                with open("dlq", "a") as f:
-                    f.write("\n".join([str(x) for x in files_list]) + "\n")
-            finally:
-                files_list = []
+        unbatched_files = db.get_unbatched_files()
+        print("Unbatched_files:", unbatched_files)
+        if unbatched_files is not None:
+            if len(unbatched_files) >= 50 or (
+                datetime.utcnow() - unbatched_files[0].created_at > timedelta(seconds=BATCH_WINDOW_TIME_SECS)
+            ):
+                try:
+                    files_list = [
+                        (
+                            x.tmp_file_loc,
+                            [y.strip() for y in x.tag_list.split(",") if y.strip()],
+                            x.access_token,
+                            x.user_id,
+                        )
+                        for x in unbatched_files
+                    ]
+                    res = image_processor.process_batch(files_list)
+                    print("process_batch_outuput:", res)
+                    db.create_batch_queue(data_models.BatchQueue(*res))
+                    print(f"Submitted job with id: {res[0]} to OpenAI")
+
+                    for x in unbatched_files:
+                        x.batch_id = res[0]
+                        db.update_file_queue(x.tmp_file_loc, x)
+                except Exception as e:
+                    print(e)
+                    with open("dlq", "a") as f:
+                        f.write("\n".join([str(x) for x in files_list]) + "\n")
+                finally:
+                    files_list = []
+
+        time.sleep(60)
 
 
 # ===
@@ -358,6 +364,7 @@ def process_file(
         season=season,
         user_id=account_id,
     )
+    db.mark_file_as_saved(file_path)
     print(f"Processed file: {file_path}")
 
 
@@ -382,13 +389,14 @@ def compute_embeddings_and_metadata_and_push_to_db(
             print("get_image_captioning returned None")
             continue
         image_path = json_record.get("custom_id")
-        process_file(
-            image_path,
-            batch_metadata[image_path]["tags"],
-            batch_metadata[image_path]["access_token"],
-            img_details.model_dump(),
-            batch_metadata[image_path]["account_id"],
-        )
+        if not db.is_file_saved_to_db(image_path):
+            process_file(
+                image_path,
+                batch_metadata[image_path]["tags"],
+                batch_metadata[image_path]["access_token"],
+                img_details.model_dump(),
+                batch_metadata[image_path]["account_id"],
+            )
         try:
             os.remove(image_path)
             print(f"removed file: {image_path} sucessfully")
@@ -399,49 +407,90 @@ def compute_embeddings_and_metadata_and_push_to_db(
 def job_processor():
     client = openai.OpenAI()
     while True:
-        if not job_queue.empty():
-            batch_id, input_file_id, batch_jsonl_fp, batch_metadata_fp = job_queue.get()
-            batch_object = client.batches.retrieve(batch_id)
-            if batch_object.status in ["validating", "in_progress", "finalizing"]:
-                print(f"Batch Object status:", batch_object.status)
-                time.sleep(60)
-                job_queue.put((batch_id, input_file_id, batch_jsonl_fp, batch_metadata_fp))
-            elif batch_object.status == "completed":
-                print("Caption and Tag Generation (batch job) complete")
-                compute_embeddings_and_metadata_and_push_to_db(
-                    batch_id, input_file_id, batch_jsonl_fp, batch_metadata_fp, batch_object
-                )
-                # clean up
+        running_batch_jobs: list[data_models.BatchQueue] = db.get_running_batch_jobs()
+        if running_batch_jobs is not None:
+            for batch_item in running_batch_jobs:
+                batch_object = client.batches.retrieve(batch_item.batch_id)
+                batch_item.status = batch_object.status
+                if batch_object.status in ["validating", "in_progress", "finalizing"]:
+                    print(f"Batch Object status:", batch_object.status)
+                elif batch_object.status == "completed":
+                    print("Caption and Tag Generation (batch job) complete")
+                    batch_item.output_file_id = batch_object.output_file_id
+                    compute_embeddings_and_metadata_and_push_to_db(
+                        batch_item.batch_id,
+                        batch_item.input_file_id,
+                        batch_item.batch_jsonl_filepath,
+                        batch_item.batch_metadata_filepath,
+                        batch_object,
+                    )
+                    batch_item.are_all_files_updated_in_db = True
+                else:
+                    print(f"batch job failed with status: {batch_object.status}")
+
+                db.update_batch_queue(batch_item.batch_id, batch_item)
+        else:
+            time.sleep(60)
+
+
+def garbage_collector():
+    # clean up files from disk and oai storage and everywhere else it needs to be cleaned from
+    client = openai.OpenAI()
+    while True:
+        # remove files
+        uncleaned_files = db.get_uncleaned_files()
+        if uncleaned_files is not None:
+            for file_item in uncleaned_files:
                 try:
-                    client.files.delete(input_file_id)
-                    client.files.delete(batch_object.output_file_id)
-                    os.remove(batch_jsonl_fp)
-                    os.remove(batch_metadata_fp)
-                    print("Clean up and everything done for batch:", batch_id)
+                    os.remove(file_item.tmp_file_loc)
+                    file_item.is_cleaned_from_disk = True
+                    db.update_file_queue(file_item.tmp_file_loc, file_item)
+                except FileNotFoundError:
+                    file_item.is_cleaned_from_disk = True
+                    db.update_file_queue(file_item.tmp_file_loc, file_item)
+                except Exception as e:
+                    print("File cleaning broke because of error:", e)
+
+        # remove batch files
+        completed_batches = db.get_completed_jobs_but_not_cleaned()
+        if completed_batches is not None:
+            for batch_item in completed_batches:
+                # check if all files from that batch are done, if yes continue else skip next steps
+                still_in_process = False
+                if not batch_item.are_all_files_updated_in_db:
+                    batch_files = db.get_files_by_batch_id(batch_item.batch_id)
+                    if batch_files is not None:
+                        for f in batch_files:
+                            if not f.is_saved_to_db:
+                                still_in_process = True
+                                break
+                if still_in_process:
+                    continue
+                try:
+                    if not batch_item.are_files_deleted_from_oai_storage:
+                        client.files.delete(batch_item.input_file_id)
+                        client.files.delete(batch_item.output_file_id)
+                        batch_item.are_files_deleted_from_oai_storage = True
+                    if not batch_item.is_cleaned_from_disk:
+                        os.remove(batch_item.batch_jsonl_filepath)
+                        os.remove(batch_item.batch_metadata_filepath)
+                        batch_item.is_cleaned_from_disk = True
+                    print("Clean up and everything done for batch:", batch_item.batch_id)
                 except Exception as e:
                     print("Clean up messed up with err:", e)
-            else:
-                print(f"batch job failed with status: {batch_object.status}")
+                finally:
+                    db.update_batch_queue(batch_item.batch_id, batch_item)
 
-        else:
-            time.sleep(5)
+        time.sleep(24 * 3600)  # run once a day
 
 
 # Start a background thread for processing files
 threading.Thread(target=file_processor, daemon=True).start()
 threading.Thread(target=job_processor, daemon=True).start()
+threading.Thread(target=garbage_collector, daemon=True).start()
 
 
 if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run("api:app", host="localhost", port=8080, reload=True)
-
-    """
-    # test if file_processor and job_processor threads work appropriately, by adding to images to the first queue
-    # image files: ../../image.jpg, ../screenshot.png
-    file_queue.put(("../../image.png", ["tag1", "tag2"], "access_token", datetime.now()))
-    file_queue.put(("../screenshot.png", ["tag3", "tag4"], "access_token", datetime.now()))
-
-    input('Do not press Enter, else program will stop')
-    """

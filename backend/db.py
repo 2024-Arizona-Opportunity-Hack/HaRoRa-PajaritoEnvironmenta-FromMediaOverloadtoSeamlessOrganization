@@ -340,6 +340,75 @@ def delete_file_queue(conn, tmp_file_loc: str):
         cur.execute(delete_query, (tmp_file_loc,))
 
 
+@with_connection
+def get_unbatched_files(conn) -> list[FileQueue] | None:
+    """get list of files who have batch_id as null and is not saved to db"""
+    select_query = """
+    SELECT tmp_file_loc, tag_list, access_token, user_id, batch_id,
+           is_saved_to_db, is_cleaned_from_disk, created_at, updated_at
+    FROM FileQueue
+    WHERE batch_id IS NULL AND is_saved_to_db = FALSE
+    ORDER BY created_at
+    LIMIT 50;
+    """
+    with conn.cursor() as cur:
+        cur.execute(select_query)
+        results = cur.fetchall()
+        return [FileQueue(*result) for result in results] if results else None
+
+
+@with_connection
+def get_uncleaned_files(conn) -> list[FileQueue] | None:
+    """
+    Get list of files that are not cleaned from disk
+    """
+    select_query = """
+    SELECT tmp_file_loc, tag_list, access_token, user_id, batch_id,
+           is_saved_to_db, is_cleaned_from_disk, created_at, updated_at
+    FROM FileQueue
+    WHERE is_cleaned_from_disk = FALSE AND is_saved_to_db = TRUE
+    ORDER BY created_at;
+    """
+    with conn.cursor() as cur:
+        cur.execute(select_query)
+        results = cur.fetchall()
+        return [FileQueue(*result) for result in results] if results else None
+
+
+@with_connection
+def mark_file_as_saved(conn, tmp_file_loc: str):
+    update_query = """
+    UPDATE FileQueue SET is_saved_to_db = TRUE WHERE tmp_file_loc = %s
+    """
+    with conn.cursor() as cur:
+        cur.execute(update_query, (tmp_file_loc,))
+
+
+@with_connection
+def get_files_by_batch_id(conn, batch_id: str) -> Optional[List[FileQueue]]:
+    select_query = """
+    SELECT tmp_file_loc, tag_list, access_token, user_id, batch_id,
+           is_saved_to_db, is_cleaned_from_disk, created_at, updated_at
+    FROM FileQueue
+    WHERE batch_id = %s
+    """
+    with conn.cursor() as cur:
+        cur.execute(select_query, (batch_id,))
+        results = cur.fetchall()
+        return [FileQueue(*result) for result in results] if results else None
+
+
+@with_connection
+def is_file_saved_to_db(conn, tmp_file_loc: str) -> bool:
+    select_query = """
+    SELECT is_saved_to_db FROM FileQueue WHERE tmp_file_loc = %s
+    """
+    with conn.cursor() as cur:
+        cur.execute(select_query, (tmp_file_loc,))
+        result = cur.fetchone()
+        return result[0] if result else False
+
+
 # ===
 # BatchQueue
 # ===
@@ -417,6 +486,39 @@ def delete_batch_queue(conn, batch_id: str):
     """
     with conn.cursor() as cur:
         cur.execute(delete_query, (batch_id,))
+
+
+@with_connection
+def get_running_batch_jobs(conn) -> list[BatchQueue] | None:
+    """get list of running batch jobs (status != 'completed')"""
+    select_query = """
+    SELECT batch_id, input_file_id, batch_jsonl_filepath, batch_metadata_filepath, status,
+           output_file_id, are_all_files_updated_in_db, are_files_deleted_from_oai_storage,
+           is_cleaned_from_disk, created_at, updated_at
+    FROM BatchQueue
+    WHERE status != 'completed'
+    ORDER BY created_at;
+    """
+    with conn.cursor() as cur:
+        cur.execute(select_query)
+        results = cur.fetchall()
+        return [BatchQueue(*result) for result in results] if results else None
+
+
+@with_connection
+def get_completed_jobs_but_not_cleaned(conn) -> list[BatchQueue] | None:
+    select_query = """
+    SELECT batch_id, input_file_id, batch_jsonl_filepath, batch_metadata_filepath, status,
+           output_file_id, are_all_files_updated_in_db, are_files_deleted_from_oai_storage,
+           is_cleaned_from_disk, created_at, updated_at
+    FROM BatchQueue
+    WHERE status = 'completed' AND (is_cleaned_from_disk = FALSE OR are_files_deleted_from_oai_storage = FALSE)
+    ORDER BY created_at;
+    """
+    with conn.cursor() as cur:
+        cur.execute(select_query)
+        results = cur.fetchall()
+        return [BatchQueue(*result) for result in results] if results else None
 
 
 if __name__ == "__main__":

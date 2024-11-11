@@ -9,7 +9,9 @@ CREATE TABLE IF NOT EXISTS users (
   email TEXT NOT NULL,       -- dropbox email
   access_token TEXT NOT NULL, -- dropbox access token for the user for current app
   refresh_token TEXT NOT NULL, -- dropbox refresh token once access token expires
-  cursor TEXT               -- optional cursor
+  cursor TEXT,               -- optional cursor
+  updated_at                    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  created_at                    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 
@@ -43,7 +45,7 @@ CREATE TABLE IF NOT EXISTS FileQueue (
   user_id TEXT NOT NULL,
   batch_id TEXT,
   is_saved_to_db BOOLEAN DEFAULT FALSE,
-  is_cleaned_from_disk BOOLEAN DEFAULT FALSE
+  is_cleaned_from_disk BOOLEAN DEFAULT FALSE,
   updated_at                    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   created_at                    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
@@ -57,29 +59,49 @@ CREATE TABLE IF NOT EXISTS BatchQueue (
   output_file_id TEXT,
   are_all_files_updated_in_db BOOLEAN DEFAULT FALSE,
   are_files_deleted_from_oai_storage BOOLEAN DEFAULT FALSE,
-  is_cleaned_from_disk BOOLEAN DEFAULT FALSE
+  is_cleaned_from_disk BOOLEAN DEFAULT FALSE,
+  updated_at                    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  created_at                    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
 CREATE
 OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
-    NEW.updated_at
-= NOW();
-RETURN NEW;
+  NEW.updated_at = NOW();
+  RETURN NEW;
 END;
 $$
-LANGUAGE plpgsql;
+LANGUAGE 'plpgsql';
 
+CREATE TRIGGER update_updated_at_trigger
+BEFORE UPDATE ON image_detail
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
 
-CREATE TRIGGER update_updated_at
-    BEFORE UPDATE
-    ON image_detail
-    FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_updated_at_trigger
+BEFORE UPDATE ON users
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_updated_at_trigger
+BEFORE UPDATE ON FileQueue
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER update_updated_at_trigger
+BEFORE UPDATE ON BatchQueue
+FOR EACH ROW
+EXECUTE FUNCTION update_updated_at_column();
+
+-- CREATE TRIGGER update_updated_at
+    -- BEFORE UPDATE
+    -- ON image_detail
+    -- FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Index creation for searching on coordinates
-CREATE INDEX idx_image_detail_coordinates ON image_detail USING GIST (coordinates);
+CREATE INDEX IF NOT EXISTS idx_image_detail_coordinates ON image_detail USING GIST (coordinates);
 
 -- Index creation for searching on the embedding vector
 -- This assumes the use of the pgvector extension or a similar extension
-CREATE INDEX idx_image_detail_embedding ON image_detail USING hnsw (embedding_vector vector_ip_ops);
+CREATE INDEX IF NOT EXISTS idx_image_detail_embedding ON image_detail USING hnsw (embedding_vector vector_ip_ops);
