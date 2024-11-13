@@ -5,6 +5,7 @@ import os
 import requests
 import threading
 import time
+import traceback
 import uuid
 from datetime import datetime, timedelta
 from queue import Queue
@@ -326,37 +327,39 @@ async def update_tags(file_id: str, tags: List[str]):
 # ===
 def file_processor():
     while True:
-        unbatched_files = db.get_unbatched_files()
-        if unbatched_files is not None:
-            if len(unbatched_files) >= 50 or (
-                datetime.utcnow() - unbatched_files[0].created_at > timedelta(seconds=BATCH_WINDOW_TIME_SECS)
-            ):
-                try:
-                    files_list = [
-                        (
-                            x.tmp_file_loc,
-                            [y.strip() for y in x.tag_list.split(",") if y.strip()],
-                            x.access_token,
-                            x.user_id,
-                        )
-                        for x in unbatched_files
-                    ]
-                    res = image_processor.process_batch(files_list)
-                    print("process_batch_outuput:", res)
-                    db.create_batch_queue(data_models.BatchQueue(*res))
-                    print(f"Submitted job with id: {res[0]} to OpenAI")
+        try:
+            unbatched_files = db.get_unbatched_files()
+            if unbatched_files is not None:
+                if len(unbatched_files) >= 50 or (
+                    datetime.utcnow() - unbatched_files[0].created_at > timedelta(seconds=BATCH_WINDOW_TIME_SECS)
+                ):
+                    try:
+                        files_list = [
+                            (
+                                x.tmp_file_loc,
+                                [y.strip() for y in x.tag_list.split(",") if y.strip()],
+                                x.access_token,
+                                x.user_id,
+                            )
+                            for x in unbatched_files
+                        ]
+                        res = image_processor.process_batch(files_list)
+                        print("process_batch_outuput:", res)
+                        db.create_batch_queue(data_models.BatchQueue(*res))
+                        print(f"Submitted job with id: {res[0]} to OpenAI")
 
-                    for x in unbatched_files:
-                        x.batch_id = res[0]
-                        db.update_file_queue(x.tmp_file_loc, x)
-                except Exception as e:
-                    print(e)
-                    with open("dlq", "a") as f:
-                        f.write("\n".join([str(x) for x in files_list]) + "\n")
-                finally:
-                    files_list = []
-
-        time.sleep(60)
+                        for x in unbatched_files:
+                            x.batch_id = res[0]
+                            db.update_file_queue(x.tmp_file_loc, x)
+                    except Exception as e:
+                        print(e)
+                    finally:
+                        files_list = []
+        except Exception as e:
+            print("Error in file_processor:", e)
+            print(traceback.format_exc())
+        finally:
+            time.sleep(60)
 
 
 # ===
@@ -517,80 +520,90 @@ def compute_embeddings_and_metadata_and_push_to_db(
 def job_processor():
     client = openai.OpenAI()
     while True:
-        running_batch_jobs: list[data_models.BatchQueue] = db.get_running_batch_jobs()
-        if running_batch_jobs is not None:
-            for batch_item in running_batch_jobs:
-                batch_object = client.batches.retrieve(batch_item.batch_id)
-                batch_item.status = batch_object.status
-                if batch_object.status in ["validating", "in_progress", "finalizing"]:
-                    print(f"Batch Object status:", batch_object.status)
-                elif batch_object.status == "completed":
-                    print("Caption and Tag Generation (batch job) complete")
-                    batch_item.output_file_id = batch_object.output_file_id
-                    compute_embeddings_and_metadata_and_push_to_db(
-                        batch_item.batch_id,
-                        batch_item.input_file_id,
-                        batch_item.batch_jsonl_filepath,
-                        batch_item.batch_metadata_filepath,
-                        batch_object,
-                    )
-                    batch_item.are_all_files_updated_in_db = True
-                else:
-                    print(f"batch job failed with status: {batch_object.status}")
+        try:
+            running_batch_jobs: list[data_models.BatchQueue] = db.get_running_batch_jobs()
+            if running_batch_jobs is not None:
+                for batch_item in running_batch_jobs:
+                    batch_object = client.batches.retrieve(batch_item.batch_id)
+                    batch_item.status = batch_object.status
+                    if batch_object.status in ["validating", "in_progress", "finalizing"]:
+                        print(f"Batch Object status:", batch_object.status)
+                    elif batch_object.status == "completed":
+                        print("Caption and Tag Generation (batch job) complete")
+                        batch_item.output_file_id = batch_object.output_file_id
+                        compute_embeddings_and_metadata_and_push_to_db(
+                            batch_item.batch_id,
+                            batch_item.input_file_id,
+                            batch_item.batch_jsonl_filepath,
+                            batch_item.batch_metadata_filepath,
+                            batch_object,
+                        )
+                        batch_item.are_all_files_updated_in_db = True
+                    else:
+                        print(f"batch job failed with status: {batch_object.status}")
 
-                db.update_batch_queue(batch_item.batch_id, batch_item)
-        time.sleep(60)
+                    db.update_batch_queue(batch_item.batch_id, batch_item)
+        except Exception as e:
+            print("Error in job_processor:", e)
+            print(traceback.format_exc())
+        finally:
+            time.sleep(60)
 
 
 def garbage_collector():
     # clean up files from disk and oai storage and everywhere else it needs to be cleaned from
     client = openai.OpenAI()
     while True:
-        # remove files
-        uncleaned_files = db.get_uncleaned_files()
-        if uncleaned_files is not None:
-            for file_item in uncleaned_files:
-                try:
-                    os.remove(file_item.tmp_file_loc)
-                    file_item.is_cleaned_from_disk = True
-                    db.update_file_queue(file_item.tmp_file_loc, file_item)
-                except FileNotFoundError:
-                    file_item.is_cleaned_from_disk = True
-                    db.update_file_queue(file_item.tmp_file_loc, file_item)
-                except Exception as e:
-                    print("File cleaning broke because of error:", e)
+        try:
+            # remove files
+            uncleaned_files = db.get_uncleaned_files()
+            if uncleaned_files is not None:
+                for file_item in uncleaned_files:
+                    try:
+                        os.remove(file_item.tmp_file_loc)
+                        file_item.is_cleaned_from_disk = True
+                        db.update_file_queue(file_item.tmp_file_loc, file_item)
+                    except FileNotFoundError:
+                        file_item.is_cleaned_from_disk = True
+                        db.update_file_queue(file_item.tmp_file_loc, file_item)
+                    except Exception as e:
+                        print("File cleaning broke because of error:", e)
 
-        # remove batch files
-        completed_batches = db.get_completed_jobs_but_not_cleaned()
-        if completed_batches is not None:
-            for batch_item in completed_batches:
-                # check if all files from that batch are done, if yes continue else skip next steps
-                still_in_process = False
-                if not batch_item.are_all_files_updated_in_db:
-                    batch_files = db.get_files_by_batch_id(batch_item.batch_id)
-                    if batch_files is not None:
-                        for f in batch_files:
-                            if not f.is_saved_to_db:
-                                still_in_process = True
-                                break
-                if still_in_process:
-                    continue
-                try:
-                    if not batch_item.are_files_deleted_from_oai_storage:
-                        client.files.delete(batch_item.input_file_id)
-                        client.files.delete(batch_item.output_file_id)
-                        batch_item.are_files_deleted_from_oai_storage = True
-                    if not batch_item.is_cleaned_from_disk:
-                        os.remove(batch_item.batch_jsonl_filepath)
-                        os.remove(batch_item.batch_metadata_filepath)
-                        batch_item.is_cleaned_from_disk = True
-                    print("Clean up and everything done for batch:", batch_item.batch_id)
-                except Exception as e:
-                    print("Clean up messed up with err:", e)
-                finally:
-                    db.update_batch_queue(batch_item.batch_id, batch_item)
+            # remove batch files
+            completed_batches = db.get_completed_jobs_but_not_cleaned()
+            if completed_batches is not None:
+                for batch_item in completed_batches:
+                    # check if all files from that batch are done, if yes continue else skip next steps
+                    still_in_process = False
+                    if not batch_item.are_all_files_updated_in_db:
+                        batch_files = db.get_files_by_batch_id(batch_item.batch_id)
+                        if batch_files is not None:
+                            for f in batch_files:
+                                if not f.is_saved_to_db:
+                                    still_in_process = True
+                                    break
+                    if still_in_process:
+                        continue
+                    try:
+                        if not batch_item.are_files_deleted_from_oai_storage:
+                            client.files.delete(batch_item.input_file_id)
+                            client.files.delete(batch_item.output_file_id)
+                            batch_item.are_files_deleted_from_oai_storage = True
+                        if not batch_item.is_cleaned_from_disk:
+                            os.remove(batch_item.batch_jsonl_filepath)
+                            os.remove(batch_item.batch_metadata_filepath)
+                            batch_item.is_cleaned_from_disk = True
+                        print("Clean up and everything done for batch:", batch_item.batch_id)
+                    except Exception as e:
+                        print("Clean up messed up with err:", e)
+                    finally:
+                        db.update_batch_queue(batch_item.batch_id, batch_item)
 
-        time.sleep(GARBAGE_COLLECTION_TIME_SECS)  # run once a day
+        except Exception as e:
+            print("Error in garbage_collector:", e)
+            print(traceback.format_exc())
+        finally:
+            time.sleep(GARBAGE_COLLECTION_TIME_SECS)  # run once a day
 
 
 # ===
@@ -618,21 +631,25 @@ def list_dropbox_folder(access_token: str, filepath: str, cursor: str | None = N
 
 def pol_from_dropbox():
     while True:
-        # get all users
-        users_list = db.get_all_users()
-        for user in users_list:
-            print(f"Looking into user: {user.user_name}")
-            ROOT_PATH = "/Apps/PixQuery/images"
-            while True:
-                res = list_dropbox_folder(user.access_token, ROOT_PATH, user.cursor)
-                user.cursor = res["cursor"]
-                for ent in res["entries"]:
-                    handle_dropbox_files(ent, user.access_token, user.user_id)
-                if not res["has_more"]:
-                    break
-            db.update_user(user.user_id, user)
-
-        time.sleep(POLL_WINDOW_TIME_SECS)  # once in a day
+        try:
+            # get all users
+            users_list = db.get_all_users()
+            for user in users_list:
+                print(f"Looking into user: {user.user_name}")
+                ROOT_PATH = "/Apps/PixQuery/images"
+                while True:
+                    res = list_dropbox_folder(user.access_token, ROOT_PATH, user.cursor)
+                    user.cursor = res["cursor"]
+                    for ent in res["entries"]:
+                        handle_dropbox_files(ent, user.access_token, user.user_id)
+                    if not res["has_more"]:
+                        break
+                db.update_user(user.user_id, user)
+        except Exception as e:
+            print("Error in pol_from_dropbox:", e)
+            print(traceback.format_exc())
+        finally:
+            time.sleep(POLL_WINDOW_TIME_SECS)  # once in a day
 
 
 def handle_dropbox_files(ent, access_token, user_id):
