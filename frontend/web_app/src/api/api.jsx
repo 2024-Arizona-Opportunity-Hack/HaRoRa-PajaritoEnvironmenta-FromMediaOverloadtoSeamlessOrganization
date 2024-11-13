@@ -2,7 +2,7 @@ import axios from 'axios';
 
 // Set the base URL for Axios
 //axios.defaults.baseURL = process.env.WEBPAGE_URL + '/api/v1'; // Use environment variable for backend URL
-axios.defaults.baseURL = 'http://localhost/api/v1'; // Use environment variable for backend URL
+axios.defaults.baseURL = '/api/v1'; // Use environment variable for backend URL
 
 // Auth
 // get profile info

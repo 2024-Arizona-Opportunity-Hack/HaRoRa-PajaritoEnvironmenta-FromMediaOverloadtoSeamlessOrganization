@@ -25,6 +25,8 @@ import structured_llm_output
 
 app = FastAPI(root_path="/api/v1")
 BATCH_WINDOW_TIME_SECS = int(os.environ.get("BATCH_WINDOW_TIME_SECS", 4 * 3600))
+POLL_WINDOW_TIME_SECS = int(os.environ.get("POLL_WINDOW_TIME_SECS", 4 * 3600))
+GARBAGE_COLLECTION_TIME_SECS = int(os.environ.get("GARBAGE_COLLECTION_TIME_SECS", 4 * 3600))
 
 
 app.add_middleware(SessionMiddleware, secret_key=os.environ["FASTAPI_SESSION_SECRET_KEY"])
@@ -590,7 +592,7 @@ def garbage_collector():
                 finally:
                     db.update_batch_queue(batch_item.batch_id, batch_item)
 
-        time.sleep(24 * 3600)  # run once a day
+        time.sleep(GARBAGE_COLLECTION_TIME_SECS)  # run once a day
 
 
 # ===
@@ -632,7 +634,7 @@ def pol_from_dropbox():
                     break
             db.update_user(user.user_id, user)
 
-        time.sleep(24 * 3600)  # once in a day
+        time.sleep(POLL_WINDOW_TIME_SECS)  # once in a day
 
 
 def handle_dropbox_files(ent, access_token, user_id):

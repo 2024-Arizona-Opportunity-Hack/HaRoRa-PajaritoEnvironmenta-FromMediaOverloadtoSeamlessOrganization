@@ -19,6 +19,8 @@ export DROPBOX_CLIENT_SECRET=
 export OPENAI_API_KEY=
 export TOGETHER_API_KEY=
 export BATCH_WINDOW_TIME_SECS=10  # 10 secs
+export GARBAGE_COLLECTION_TIME_SECS=600  # 10 mins
+export POLL_WINDOW_TIME_SECS=10  # 10 secs
 ```
 
 -- `.prod.env`
@@ -34,7 +36,9 @@ export DROPBOX_CLIENT_ID=
 export DROPBOX_CLIENT_SECRET=
 export OPENAI_API_KEY=
 export TOGETHER_API_KEY=
-export BATCH_WINDOW_TIME_SECS=14400  # 4 hours
+export BATCH_WINDOW_TIME_SECS=60  # 1 min
+export GARBAGE_COLLECTION_TIME_SECS=3600  # 1 hr
+export POLL_WINDOW_TIME_SECS=60  # 1 min
 ```
 
 0. Add below to nginx.conf and restart:
@@ -44,7 +48,7 @@ export BATCH_WINDOW_TIME_SECS=14400  # 4 hours
             server_name  localhost;
             client_max_body_size 100M;
 
-            location /api {
+            location /api/v1 {
                 proxy_pass http://localhost:8081;
                 proxy_set_header Host $host;
                 proxy_set_header X-Real-IP $remote_addr;
