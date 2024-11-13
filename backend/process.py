@@ -93,6 +93,7 @@ def process_batch(files_list: list[tuple]) -> tuple[str, str, str, str]:
             "image_path": image_path,
             "tags": x[1],
             "access_token": x[2],
+            "account_id": x[3]
         }
 
     batch_uid = uuid.uuid4()
