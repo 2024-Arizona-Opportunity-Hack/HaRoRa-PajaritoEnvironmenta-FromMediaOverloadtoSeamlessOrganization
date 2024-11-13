@@ -104,7 +104,7 @@ async def auth_dropbox_callback(request: Request):
             "access_token": access_token,
         }
         # create folder
-        create_dropbox_folder(access_token, "/Apps/PEEC Media Management")
+        create_dropbox_folder(access_token, "/Apps/PixQuery")
         template_id = create_dropbox_template(access_token)
         # check if user exists in DB
         user = db.read_user(user_info["account_id"])
@@ -393,10 +393,10 @@ def add_tag_to_dropbox_file(access_token: str, path: str, tag_text: str) -> None
 def process_file(
     file_path: str, tags_list: list[str], access_token: str, img_details: dict[str, str | list[str]], account_id: str
 ):
-    dropbox_destination_path = "/Apps/PEEC Media Management/images/" + os.path.basename(file_path)
+    dropbox_destination_path = "/Apps/PixQuery/images/" + os.path.basename(file_path)
     response = upload_to_dropbox(access_token, file_path, dropbox_destination_path)
     print(response)
-    url = f"https://www.dropbox.com/home/Apps/PEEC Media Management/images?preview={os.path.basename(file_path)}"
+    url = f"https://www.dropbox.com/home/Apps/PixQuery/images?preview={os.path.basename(file_path)}"
     thumbnail_url = image_processor.get_thumbnail(file_path)
 
     print("Getting title, caption, and tags ...")
@@ -624,7 +624,7 @@ def pol_from_dropbox():
         users_list = db.get_all_users()
         for user in users_list:
             print(f"Looking into user: {user.user_name}")
-            ROOT_PATH = "/Apps/PEEC Media Management/images"
+            ROOT_PATH = "/Apps/PixQuery/images"
             while True:
                 res = list_dropbox_folder(user.access_token, ROOT_PATH, user.cursor)
                 user.cursor = res["cursor"]
