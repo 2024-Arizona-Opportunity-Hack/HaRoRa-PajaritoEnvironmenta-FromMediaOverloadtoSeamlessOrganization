@@ -29,7 +29,7 @@ function Navbar() {
                         to="/"
                         className="text-3xl font-bold text-primary hover:text-primary-focus transition duration-300 ease-in-out "
                     >
-                        PEEC's Media Manager
+                        PixQuery
                     </Link>
 
                     {/* mNavigation Links and Theme Selector */}

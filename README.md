@@ -185,9 +185,9 @@ Our system uses AI models like CLIP, GPT-4 Mini, and Llama-3.1 to automatically 
 ## What’s Next
 
 -   **Broader Cloud Integration**: We plan to extend support to other cloud services like Google Drive and OneDrive, offering more flexibility to users.
--   **Canva Integration**: We plan to integrate with PEEC's Canva account to streamline media editing and design processes directly from the media management platform.
+-   **Canva Integration**: We plan to integrate with Canva account to streamline media editing and design processes directly from the media management platform.
 -   **Digital Rights Management (DRM)**: Introducing metadata functionality for tracking image ownership and photo credits to ensure proper attribution and usage rights for each media file.
 -   **Advanced Version Control**: Implementing version control for media files to track changes, prevent accidental overwrites, and allow restoration of previous file versions if needed.
 -   **Storage Flexibility & Scalability**: Enhancing storage management tools and scalability to support growing media libraries, including the ability to archive files and track storage usage.
 -   **Role-Based Access Control**: Setting up role-based permissions (e.g., admin vs. view-only) to allow secure file sharing and user access management.
--   **Mobile Accessibility**: Exploring mobile-friendly features to allow PEEC staff to manage and access their media library on the go.
+-   **Mobile Accessibility**: Exploring mobile-friendly features to allow customers to manage and access their media library on the go.
