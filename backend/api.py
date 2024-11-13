@@ -327,7 +327,6 @@ async def update_tags(file_id: str, tags: List[str]):
 def file_processor():
     while True:
         unbatched_files = db.get_unbatched_files()
-        print("Unbatched_files:", unbatched_files)
         if unbatched_files is not None:
             if len(unbatched_files) >= 50 or (
                 datetime.utcnow() - unbatched_files[0].created_at > timedelta(seconds=BATCH_WINDOW_TIME_SECS)
@@ -540,8 +539,7 @@ def job_processor():
                     print(f"batch job failed with status: {batch_object.status}")
 
                 db.update_batch_queue(batch_item.batch_id, batch_item)
-        else:
-            time.sleep(60)
+        time.sleep(60)
 
 
 def garbage_collector():
