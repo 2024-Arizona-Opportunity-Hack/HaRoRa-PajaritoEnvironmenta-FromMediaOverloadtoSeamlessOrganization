@@ -105,7 +105,7 @@ async def auth_dropbox_callback(request: Request):
             "access_token": access_token,
         }
         # create folder
-        create_dropbox_folder(access_token, "/Apps/PixQuery")
+        create_dropbox_folder(access_token, "/Apps/PixQuery/images")
         template_id = create_dropbox_template(access_token)
         # check if user exists in DB
         user = db.read_user(user_info["account_id"])
