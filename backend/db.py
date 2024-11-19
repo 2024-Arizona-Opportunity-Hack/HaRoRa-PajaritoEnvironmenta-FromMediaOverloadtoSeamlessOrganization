@@ -155,6 +155,9 @@ def get_search_query_result(
         return [data_models.ImageDetailResult(*x) for x in result] if result else None
 
 
+# ===
+# ImageDetail
+# ===
 @with_connection
 def insert(
     conn,
@@ -191,7 +194,12 @@ def insert(
            """
     with conn.cursor() as cur:
         cur.execute(insert_query, entry)
+    return entry[0]  # uuid
 
+@with_connection
+def update_with_title_tags_caption(conn, uuid, title, caption, tags):
+    update_query = 'UPDATE image_detail SET title = %s, caption = %s, tags = %s WHERE uuid = %s'
+    with conn.cursor() as cur: cur.execute(update_query, (title, caption, tags, uuid))
 
 @with_connection
 def update_tags(conn, uuid: str, tags: str):
@@ -301,9 +309,9 @@ def get_all_users(conn) -> List[User]:
 def create_file_queue(conn, file_queue: FileQueue):
     insert_query = """
     INSERT INTO FileQueue (
-        tmp_file_loc, tag_list, access_token, user_id, batch_id,
+        tmp_file_loc, tag_list, access_token, user_id, image_id, batch_id,
         is_saved_to_db, is_cleaned_from_disk
-    ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
     """
     with conn.cursor() as cur:
         cur.execute(
@@ -313,6 +321,7 @@ def create_file_queue(conn, file_queue: FileQueue):
                 file_queue.tag_list,
                 file_queue.access_token,
                 file_queue.user_id,
+                file_queue.image_id,
                 file_queue.batch_id,
                 file_queue.is_saved_to_db,
                 file_queue.is_cleaned_from_disk,
@@ -323,7 +332,7 @@ def create_file_queue(conn, file_queue: FileQueue):
 @with_connection
 def read_file_queue(conn, tmp_file_loc: str) -> Optional[FileQueue]:
     select_query = """
-    SELECT tmp_file_loc, tag_list, access_token, user_id, batch_id,
+    SELECT tmp_file_loc, tag_list, access_token, user_id, image_id, batch_id,
            is_saved_to_db, is_cleaned_from_disk
     FROM FileQueue
     WHERE tmp_file_loc = %s
@@ -338,7 +347,7 @@ def read_file_queue(conn, tmp_file_loc: str) -> Optional[FileQueue]:
 def update_file_queue(conn, tmp_file_loc: str, file_queue: FileQueue):
     update_query = """
     UPDATE FileQueue SET
-        tag_list = %s, access_token = %s, user_id = %s, batch_id = %s,
+        tag_list = %s, access_token = %s, user_id = %s, image_id = %s, batch_id = %s,
         is_saved_to_db = %s, is_cleaned_from_disk = %s
     WHERE tmp_file_loc = %s
     """
@@ -349,6 +358,7 @@ def update_file_queue(conn, tmp_file_loc: str, file_queue: FileQueue):
                 file_queue.tag_list,
                 file_queue.access_token,
                 file_queue.user_id,
+                file_queue.image_id,
                 file_queue.batch_id,
                 file_queue.is_saved_to_db,
                 file_queue.is_cleaned_from_disk,
@@ -370,7 +380,7 @@ def delete_file_queue(conn, tmp_file_loc: str):
 def get_unbatched_files(conn) -> list[FileQueue] | None:
     """get list of files who have batch_id as null and is not saved to db"""
     select_query = """
-    SELECT tmp_file_loc, tag_list, access_token, user_id, batch_id,
+    SELECT tmp_file_loc, tag_list, access_token, user_id, image_id, batch_id,
            is_saved_to_db, is_cleaned_from_disk, created_at, updated_at
     FROM FileQueue
     WHERE batch_id IS NULL AND is_saved_to_db = FALSE
@@ -389,7 +399,7 @@ def get_uncleaned_files(conn) -> list[FileQueue] | None:
     Get list of files that are not cleaned from disk
     """
     select_query = """
-    SELECT tmp_file_loc, tag_list, access_token, user_id, batch_id,
+    SELECT tmp_file_loc, tag_list, access_token, user_id, image_id, batch_id,
            is_saved_to_db, is_cleaned_from_disk, created_at, updated_at
     FROM FileQueue
     WHERE is_cleaned_from_disk = FALSE AND is_saved_to_db = TRUE
@@ -546,6 +556,20 @@ def get_completed_jobs_but_not_cleaned(conn) -> list[BatchQueue] | None:
         results = cur.fetchall()
         return [BatchQueue(*result) for result in results] if results else None
 
+
+from psycopg2.errors import UndefinedTable
+
+@with_connection
+def check_and_create_tables(conn):
+    required_tables = ["users", "image_detail", "FileQueue", "BatchQueue"]
+    for table in required_tables:
+        try:
+            with conn.cursor() as cur:
+                cur.execute(f"SELECT 1 FROM {table} LIMIT 1")
+        except UndefinedTable:
+            print(f"Table {table} is missing. Creating tables...")
+            create_tables()  # Call to create tables if any are missing
+            break
 
 if __name__ == "__main__":
     create_tables()

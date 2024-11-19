@@ -20,9 +20,9 @@ CREATE TABLE IF NOT EXISTS users (
 CREATE TABLE IF NOT EXISTS image_detail
 (
     uuid                          UUID PRIMARY KEY,
-    user_id TEXT,
-    url                           TEXT,
-    thumbnail_url                 TEXT,
+    user_id TEXT NOT NULL,
+    url                           TEXT NOT NULL,
+    thumbnail_url                 TEXT NOT NULL,
     title                         TEXT,
     caption                       TEXT,
     tags                          TEXT,
@@ -44,6 +44,7 @@ CREATE TABLE IF NOT EXISTS FileQueue (
   tag_list TEXT NOT NULL,
   access_token TEXT NOT NULL,
   user_id TEXT NOT NULL,
+  image_id TEXT NOT NULL,
   batch_id TEXT,
   is_saved_to_db BOOLEAN DEFAULT FALSE,
   is_cleaned_from_disk BOOLEAN DEFAULT FALSE,
@@ -64,6 +65,17 @@ CREATE TABLE IF NOT EXISTS BatchQueue (
   updated_at                    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   created_at                    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+
+CREATE
+OR REPLACE FUNCTION update_fts_col()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.title_caption_tags_fts_vector = to_tsvector('english', COALESCE(tags, '') || ' ' || COALESCE(title, '') || ' ' || COALESCE(caption, ''));
+  RETURN NEW;
+END;
+$$
+LANGUAGE 'plpgsql';
 
 CREATE
 OR REPLACE FUNCTION update_updated_at_column()

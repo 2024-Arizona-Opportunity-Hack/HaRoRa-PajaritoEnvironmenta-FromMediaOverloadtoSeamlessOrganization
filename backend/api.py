@@ -46,6 +46,8 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
+db.check_and_create_tables()
+
 # ===
 # AUTH
 # ===
@@ -59,8 +61,6 @@ CLIENT_URL = os.environ["WEBPAGE_URL"]
 @app.get("/login")
 async def login(request: Request):
     redirect_uri = CLIENT_URL + '/api/v1/auth/dropbox/callback'
-    #redirect_uri = request.url_for("auth_dropbox_callback")
-    # redirect_uri = "https://peec.harora.lol/api/auth/dropbox/callback"
     auth_params = {
         "client_id": os.environ["DROPBOX_CLIENT_ID"],
         "redirect_uri": redirect_uri,
@@ -74,9 +74,7 @@ async def login(request: Request):
 @app.get("/auth/dropbox/callback")
 async def auth_dropbox_callback(request: Request):
     auth_code = request.query_params["code"]
-    #redirect_uri = request.url_for("auth_dropbox_callback")
     redirect_uri = CLIENT_URL + '/api/v1/auth/dropbox/callback'
-    # redirect_uri = "https://peec.harora.lol/api/auth/dropbox/callback"
     try:
         token_data = {
             "code": auth_code,
@@ -179,9 +177,67 @@ async def upload_images(request: Request, files: List[UploadFile] = File(...), t
         os.makedirs(os.path.dirname(file_location), exist_ok=True)
         with open(file_location, "wb") as buffer:
             buffer.write(await file.read())
-        db.create_file_queue(data_models.FileQueue(file_location, tags, access_token, account_id))
+
+        iid = insert_image_details_in_db(file_location, access_token, account_id)
+        db.create_file_queue(data_models.FileQueue(file_location, tags, access_token, account_id, iid))
+
     return {"uploaded_files": uploaded_files}
 
+def insert_image_details_in_db(file_location: str, access_token: str, account_id: str) -> str:
+    # upload to dropbox
+    dropbox_destination_path = "/Apps/PixQuery/images/" + os.path.basename(file_location)
+    _ = upload_to_dropbox(access_token, file_location, dropbox_destination_path)
+    url = f"https://www.dropbox.com/home/Apps/PixQuery/images?preview={os.path.basename(file_location)}"
+    thumbnail_url = image_processor.get_thumbnail(file_location)
+    # extract metadata
+    print("Extracting metadata from image ...")
+    img_metadata = image_processor.extract_image_metadata(file_location)
+    coords = None
+    capture_time_str = None
+    season = None
+    if img_metadata:
+        lat = img_metadata.get("latitude", None)
+        long = img_metadata.get("longitude", None)
+        if lat is not None and long is not None:
+            coords = [lat, long]
+
+        capture_time = img_metadata["capture_date"]
+        if capture_time is not None:
+            capture_time = datetime.strptime(capture_time, "%Y:%m:%d %H:%M:%S")
+            capture_time_str = capture_time.strftime("%d/%m/%Y")
+            # based on month get season as either summer, fall, winter, spring
+            month = capture_time.month
+            if month in [12, 1, 2]:
+                season = "winter"
+            elif month in [3, 4, 5]:
+                season = "spring"
+            elif month in [6, 7, 8]:
+                season = "summer"
+            else:
+                season = "fall"
+    # embed image
+    print("Getting image embeddings ...")
+    while True:
+        embedding_vector = image_processor.get_image_embedding(file_location)
+        if embedding_vector is None:
+            print("get image embedding returned None")
+            continue
+        break
+    # save to db
+    iid = db.insert(
+        url=url,
+        thumbnail_url=thumbnail_url,
+        title=None,
+        caption=None,
+        tags=None,
+        embedded_vector=embedding_vector,
+        coordinates=coords,
+        capture_time=capture_time_str,
+        extended_meta=json.dumps(img_metadata) if img_metadata else None,
+        season=season,
+        user_id=account_id,
+    )
+    return iid  # image uuid in db
 
 # ===
 # Search Endpoint
@@ -236,7 +292,7 @@ async def search_files(request: Request, q: str = None):
                     thumbnail_url=x.thumbnail_url,
                     title=x.title,
                     caption=x.caption,
-                    tags=x.tags.split(","),
+                    tags=x.tags.split(",") if x.tags else None,
                     season=x.season,
                     uuid=x.uuid,
                 )
@@ -342,6 +398,7 @@ def file_processor():
                                 [y.strip() for y in x.tag_list.split(",") if y.strip()],
                                 x.access_token,
                                 x.user_id,
+                                x.image_id,
                             )
                             for x in unbatched_files
                         ]
@@ -395,13 +452,13 @@ def add_tag_to_dropbox_file(access_token: str, path: str, tag_text: str) -> None
 
 
 def process_file(
-    file_path: str, tags_list: list[str], access_token: str, img_details: dict[str, str | list[str]], account_id: str
+    file_path: str, tags_list: list[str], access_token: str, img_details: dict[str, str | list[str]], account_id: str, image_id: str
 ):
     dropbox_destination_path = "/Apps/PixQuery/images/" + os.path.basename(file_path)
-    response = upload_to_dropbox(access_token, file_path, dropbox_destination_path)
-    print(response)
-    url = f"https://www.dropbox.com/home/Apps/PixQuery/images?preview={os.path.basename(file_path)}"
-    thumbnail_url = image_processor.get_thumbnail(file_path)
+    #response = upload_to_dropbox(access_token, file_path, dropbox_destination_path)
+    #print(response)
+    #url = f"https://www.dropbox.com/home/Apps/PixQuery/images?preview={os.path.basename(file_path)}"
+    #thumbnail_url = image_processor.get_thumbnail(file_path)
 
     print("Getting title, caption, and tags ...")
     title = img_details["title"]
@@ -432,14 +489,15 @@ def process_file(
     if res.status_code != 200 and res.status_code != 409:
         res.raise_for_status()
 
-    print("Getting image embeddings ...")
-    while True:
-        embedding_vector = image_processor.get_image_embedding(file_path)
-        if embedding_vector is None:
-            print("get image embedding returned None")
-            continue
-        break
+    #print("Getting image embeddings ...")
+    #while True:
+    #    embedding_vector = image_processor.get_image_embedding(file_path)
+    #    if embedding_vector is None:
+    #        print("get image embedding returned None")
+    #        continue
+    #    break
 
+    '''
     # extract_image_metadata
     print("Extracting metadata from image ...")
     img_metadata = image_processor.extract_image_metadata(file_path)
@@ -479,6 +537,8 @@ def process_file(
         season=season,
         user_id=account_id,
     )
+    '''
+    db.update_with_title_tags_caption(image_id, title, caption, tags)
     db.mark_file_as_saved(file_path)
     print(f"Processed file: {file_path}")
 
@@ -511,6 +571,7 @@ def compute_embeddings_and_metadata_and_push_to_db(
                 batch_metadata[image_path]["access_token"],
                 img_details.model_dump(),
                 batch_metadata[image_path]["account_id"],
+                batch_metadata[image_path]["image_id"],
             )
         try:
             os.remove(image_path)
@@ -680,7 +741,8 @@ def handle_dropbox_files(ent, access_token, user_id):
     with open(file_path, "wb") as f:
         f.write(file_response.content)
     print(f" Downloaded: {file_name} to {file_path}")
-    db.create_file_queue(data_models.FileQueue(file_path, "", access_token, user_id))
+    iid = insert_image_details_in_db(file_path, access_token, user_id)
+    db.create_file_queue(data_models.FileQueue(file_path, "", access_token, user_id, iid))
 
 
 # Start a background thread for processing files
