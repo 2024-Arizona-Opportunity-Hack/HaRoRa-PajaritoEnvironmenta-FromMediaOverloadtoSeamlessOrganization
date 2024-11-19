@@ -58,7 +58,8 @@ CLIENT_URL = os.environ["WEBPAGE_URL"]
 
 @app.get("/login")
 async def login(request: Request):
-    redirect_uri = request.url_for("auth_dropbox_callback")
+    redirect_uri = CLIENT_URL + '/api/v1/auth/dropbox/callback'
+    #redirect_uri = request.url_for("auth_dropbox_callback")
     # redirect_uri = "https://peec.harora.lol/api/auth/dropbox/callback"
     auth_params = {
         "client_id": os.environ["DROPBOX_CLIENT_ID"],
@@ -73,7 +74,8 @@ async def login(request: Request):
 @app.get("/auth/dropbox/callback")
 async def auth_dropbox_callback(request: Request):
     auth_code = request.query_params["code"]
-    redirect_uri = request.url_for("auth_dropbox_callback")
+    #redirect_uri = request.url_for("auth_dropbox_callback")
+    redirect_uri = CLIENT_URL + '/api/v1/auth/dropbox/callback'
     # redirect_uri = "https://peec.harora.lol/api/auth/dropbox/callback"
     try:
         token_data = {
@@ -129,7 +131,7 @@ async def auth_dropbox_callback(request: Request):
             db.update_user(user.user_id, user)
     except Exception as error:
         return HTMLResponse(f"<h1>{error}</h1>")
-    return RedirectResponse(CLIENT_URL + "/upload")
+    return RedirectResponse(CLIENT_URL + "/search")
 
 
 @app.get("/logout")

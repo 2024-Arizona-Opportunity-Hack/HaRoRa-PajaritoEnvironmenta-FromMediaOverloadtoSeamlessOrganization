@@ -42,7 +42,7 @@ def with_connection(func):
 @with_connection
 def create_tables(conn):
     cur = conn.cursor()
-    with open("./database/DDL.sql", "r") as f:
+    with open("./DDL.sql", "r") as f:
         cur.execute(f.read())
     cur.close()
 

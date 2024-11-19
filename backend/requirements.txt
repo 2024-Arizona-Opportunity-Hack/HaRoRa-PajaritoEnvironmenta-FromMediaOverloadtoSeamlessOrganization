@@ -1,0 +1,13 @@
+psycopg2
+itsdangerous
+torch
+transformers
+openai
+requests
+fastapi
+uvicorn
+gunicorn
+pydantic
+pillow
+piexif
+python-multipart
