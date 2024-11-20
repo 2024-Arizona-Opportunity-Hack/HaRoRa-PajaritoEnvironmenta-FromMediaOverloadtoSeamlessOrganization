@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import Upload from '../components/Upload';
+import Reveal from '../components/utils/Reveal.jsx';
 import { getProfileInfo, handleLogout } from '../api/api'; // Import the necessary API functions
 
 function UploadPage() {
@@ -16,23 +17,26 @@ function UploadPage() {
     }, []);
 
     return (
-        <div className="p-4  text-base-content max-w-3xl mx-auto">
-            <div className="hero  mb-6 rounded-lg">
-                <div className="hero-content text-center">
-                    <div className="max-w-md">
-                        <h1 className="text-3xl font-bold">Upload Media</h1>
-                        {profile && (
-                            <p className="py-6 text-lg">
-                                Welcome, <span className="font-semibold">{profile.name}</span>!
-                            </p>
-                        )}
+        <Reveal>
+            <div className="p-4 text-base-content max-w-3xl mx-auto">
+                <div className="hero  mb-6 rounded-lg">
+                    <div className="hero-content text-center">
+                        <div className="max-w-md">
+                            <h1 className="text-2xl font-grotesk font-bold">Upload Media</h1>
+                            {profile && (
+                                <p className="py-6 text-xl">
+                                    Welcome, <span className="font-semibold">{profile.name}</span>!
+                                </p>
+                            )}
+
+                        </div>
                     </div>
                 </div>
+                {/* Upload Component */}
+                <Upload />
             </div>
+        </Reveal>
 
-            {/* Upload Component */}
-            <Upload />
-        </div>
     );
 }
 
