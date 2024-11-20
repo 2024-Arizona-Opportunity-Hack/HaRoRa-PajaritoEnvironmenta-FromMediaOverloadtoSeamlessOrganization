@@ -7,13 +7,13 @@ class ImageDetail:
     url: str  # primary key
     user_id: str  # primary key of the user that added this Imagein table
     thumbnail_url: str
+    title: str | None
+    caption: str | None
+    tags: str | None
     coordinates: List[float] | None
     capture_time: str | None  # dd/mm/yyyy
     extended_meta: str | None
     season: str | None
-    title: str | None
-    caption: str | None
-    tags: str | None
 
 
 @dataclasses.dataclass
