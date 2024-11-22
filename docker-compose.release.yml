@@ -1,0 +1,22 @@
+services:
+  backend:
+    build: ./backend
+    environment:
+      - WEBPAGE_URL=${WEBPAGE_URL}
+      - PG_HOST=postgres
+      - PG_PORT=5432
+      - PG_USER=${PG_USER}
+      - PG_PASSWORD=${PG_PASSWORD}
+      - PG_DB=${PG_DB}
+      - FASTAPI_SESSION_SECRET_KEY=${FASTAPI_SESSION_SECRET_KEY}
+      - DROPBOX_CLIENT_ID=${DROPBOX_CLIENT_ID}
+      - DROPBOX_CLIENT_SECRET=${DROPBOX_CLIENT_SECRET}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - TOGETHER_API_KEY=${TOGETHER_API_KEY}
+      - BATCH_WINDOW_TIME_SECS=${BATCH_WINDOW_TIME_SECS}
+      - GARBAGE_COLLECTION_TIME_SECS=${GARBAGE_COLLECTION_TIME_SECS}
+      - POLL_WINDOW_TIME_SECS=${POLL_WINDOW_TIME_SECS}
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - postgres

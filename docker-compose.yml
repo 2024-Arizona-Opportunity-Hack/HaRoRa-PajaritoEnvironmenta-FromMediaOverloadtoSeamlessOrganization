@@ -22,49 +22,5 @@ services:
     depends_on:
       - postgres
 
-  frontend:
-    build: ./frontend
-    container_name: frontend
-    volumes:
-      - ./frontend/web_app/src:/app/src
-      - ./frontend/web_app/public:/app/public
-      - ./frontend/web_app/index.html:/app/index.html
-      - ./frontend/web_app/eslint.config.js:/app/eslint.config.js
-      - ./frontend/web_app/tailwind.config.js:/app/tailwind.config.js
-      - ./frontend/web_app/vite.config.js:/app/vite.config.js
-      - ./frontend/web_app/postcss.config.js:/app/postcss.config.js
-
-  backend:
-    build: ./backend
-    environment:
-      - WEBPAGE_URL=http://localhost:${PAGE_PORT}
-      - PG_HOST=postgres
-      - PG_PORT=5432
-      - PG_USER=${PG_USER}
-      - PG_PASSWORD=${PG_PASSWORD}
-      - PG_DB=${PG_DB}
-      - FASTAPI_SESSION_SECRET_KEY=harsh
-      - DROPBOX_CLIENT_ID=${DROPBOX_CLIENT_ID}
-      - DROPBOX_CLIENT_SECRET=${DROPBOX_CLIENT_SECRET}
-      - OPENAI_API_KEY=${OPENAI_API_KEY}
-      - TOGETHER_API_KEY=${TOGETHER_API_KEY}
-      - BATCH_WINDOW_TIME_SECS=10  # 10 secs
-      - GARBAGE_COLLECTION_TIME_SECS=600  # 10 mins
-      - POLL_WINDOW_TIME_SECS=10  # 10 secs
-    volumes:
-      - ./backend:/app
-    depends_on:
-      - postgres
-
-  server:
-    image: nginx
-    volumes:
-      - ./nginx_conf:/etc/nginx/nginx.conf
-    ports:
-      - "${PAGE_PORT}:80"
-    depends_on:
-      - frontend
-      - backend
-
 volumes:
   postgres_data:
