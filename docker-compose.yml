@@ -11,6 +11,11 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
       - ./database/init-scripts:/docker-entrypoint-initdb.sh
+    deploy:
+      resources:
+        limits:
+          cpus: '4.0'
+          memory: 8g
 
   pgadmin:
     image: dpage/pgadmin4
@@ -24,3 +29,4 @@ services:
 
 volumes:
   postgres_data:
+

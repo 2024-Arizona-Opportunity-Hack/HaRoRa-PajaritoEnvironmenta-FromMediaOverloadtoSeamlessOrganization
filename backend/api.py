@@ -262,29 +262,38 @@ async def search_files(request: Request, q: str = None):
     query = q
     print("query:", query)
     if query:
-        search_args = search_expander.get_search_args(query)
+        #search_args = search_expander.get_search_args(query)
 
         # geo args
-        if search_args.location is not None:
-            coords = get_coordinates(search_args.location)
-            distance_radius = 25_000  # 25km
-        else:
-            coords = None
-            distance_radius = None
+        #if search_args.location is not None:
+        #    coords = get_coordinates(search_args.location)
+        #    distance_radius = 25_000  # 25km
+        #else:
+        #    coords = None
+        #    distance_radius = None
 
+        coords = None
+        distance_radius = None
+
+        start_time = time.monotonic()
         query_embedding = image_processor.get_text_embedding(query)
+        query_gen_end_time = time.monotonic()
         results = db.get_search_query_result(
             query,
             query_embedding,
             user["account_id"],
-            search_args.season,
-            ",".join(search_args.tags),
-            coords,
-            distance_radius,
-            search_args.date_from,
-            search_args.date_to,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
             match_count=50,
         )
+        results_gen_end_time = time.monotonic()
+        print(f'Query Generation took: {(query_gen_end_time - start_time) * 1e3} ms')
+        print(f'Searching in DB took: {(results_gen_end_time - query_gen_end_time) * 1e3} ms')
+
         if results is not None:
             results = [
                 dict(
