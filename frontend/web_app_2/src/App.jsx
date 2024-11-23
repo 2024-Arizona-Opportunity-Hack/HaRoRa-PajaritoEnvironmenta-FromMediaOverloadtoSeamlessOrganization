@@ -31,8 +31,17 @@ function App() {
             <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mx-2'>
                 {/* search results */}
 
-                <div className='text-sm'>
+                <div className='text-sm max-h-48'>
                   <img className='rounded-lg' src='https://static0.gamerantimages.com/wordpress/wp-content/uploads/2023/02/aoi-todo.jpg' />
+                  <div className='font-semibold mt-2'>Todo Angry</div> 
+                  <div className='grid-cols-8 grid gap-2'>
+                    <div className='col-span-7 truncate'><span className='font-semibold'>Tags: </span>Todo, Jujutsu Kaisen, Angry, Zone ...</div> 
+                    <div className='justify-items-end'><PencilIcon className='h-4 w-4 justify-items-end'/></div>
+                  </div>
+                </div>
+
+                <div className='text-sm max-h-48'>
+                  <img className='rounded-lg w-full h-5/6 object-cover' src={'https://preview.redd.it/this-guy-todo-aoi-would-be-so-amazing-in-real-life-its-crazy-v0-re8ime34w61d1.jpeg?auto=webp&s=1d288e566947b6d75ed2a0ec9aed89173b220f5a'} />
                   <div className='font-semibold mt-2'>Todo Angry</div> 
                   <div className='grid-cols-8 grid gap-2'>
                     <div className='col-span-7 truncate'><span className='font-semibold'>Tags: </span>Todo, Jujutsu Kaisen, Angry, Zone ...</div> 
