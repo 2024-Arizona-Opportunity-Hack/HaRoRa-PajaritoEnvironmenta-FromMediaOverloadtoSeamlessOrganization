@@ -1,4 +1,5 @@
 import SearchBar from '@/components/Searchbar'
+import ImageCard from '@/components/ImageCard'
 import UploadIcon from '@/icons/UploadIcon'
 import LogoutIcon from '@/icons/LogoutIcon'
 import PencilIcon from '@/icons/PencilIcon'
@@ -28,37 +29,38 @@ function App() {
                 </div>
             </div>
             <div className="divider h-px"></div>
-            <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mx-2'>
+            <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mx-3'>
                 {/* search results */}
+                <ImageCard src={'https://preview.redd.it/this-guy-todo-aoi-would-be-so-amazing-in-real-life-its-crazy-v0-re8ime34w61d1.jpeg?auto=webp&s=1d288e566947b6d75ed2a0ec9aed89173b220f5a'} title='He is wwatching' tags={['Todo', 'Angry', 'Watching', 'God']} />
 
                 <div className='text-sm max-h-48'>
-                  <img className='rounded-lg' src='https://static0.gamerantimages.com/wordpress/wp-content/uploads/2023/02/aoi-todo.jpg' />
+                  <img className='rounded-lg w-full h-5/6 object-cover hover:scale-105 active:scale-95 hover:cursor-pointer' src='https://static0.gamerantimages.com/wordpress/wp-content/uploads/2023/02/aoi-todo.jpg' />
                   <div className='font-semibold mt-2'>Todo Angry</div> 
                   <div className='grid-cols-8 grid gap-2'>
                     <div className='col-span-7 truncate'><span className='font-semibold'>Tags: </span>Todo, Jujutsu Kaisen, Angry, Zone ...</div> 
-                    <div className='justify-items-end'><PencilIcon className='h-4 w-4 justify-items-end'/></div>
+                    <div className='justify-items-end'><PencilIcon className='h-4 w-4 hover:cursor-pointer hover:scale-105 active:scale-105'/></div>
                   </div>
                 </div>
 
                 <div className='text-sm max-h-48'>
-                  <img className='rounded-lg w-full h-5/6 object-cover' src={'https://preview.redd.it/this-guy-todo-aoi-would-be-so-amazing-in-real-life-its-crazy-v0-re8ime34w61d1.jpeg?auto=webp&s=1d288e566947b6d75ed2a0ec9aed89173b220f5a'} />
+                  <img className='rounded-lg w-full h-5/6 object-cover hover:scale-105 active:scale-95 hover:cursor-pointer' src={'https://preview.redd.it/this-guy-todo-aoi-would-be-so-amazing-in-real-life-its-crazy-v0-re8ime34w61d1.jpeg?auto=webp&s=1d288e566947b6d75ed2a0ec9aed89173b220f5a'} />
                   <div className='font-semibold mt-2'>Todo Angry</div> 
                   <div className='grid-cols-8 grid gap-2'>
                     <div className='col-span-7 truncate'><span className='font-semibold'>Tags: </span>Todo, Jujutsu Kaisen, Angry, Zone ...</div> 
-                    <div className='justify-items-end'><PencilIcon className='h-4 w-4 justify-items-end'/></div>
+                    <div className='justify-items-end'><PencilIcon className='h-4 w-4 hover:cursor-pointer hover:scale-105 active:scale-105'/></div>
                   </div>
                 </div>
 
                 {Array.from({ length: 20 }).map((_, index) => (
-                  <div key={index} className='text-sm'>
-                    <img className='rounded-lg' src='https://static0.gamerantimages.com/wordpress/wp-content/uploads/2023/02/aoi-todo.jpg' />
+                  <div key={index} className='text-sm max-h-48'>
+                    <img className='rounded-lg w-full h-5/6 object-cover hover:scale-105 active:scale-95 hover:cursor-pointer' src='https://static0.gamerantimages.com/wordpress/wp-content/uploads/2023/02/aoi-todo.jpg' />
                     <div className='font-semibold mt-2'>Todo Angry</div>
                     <div className='grid-cols-8 grid gap-2'>
                       <div className='col-span-7 truncate'>
                         <span className='font-semibold'>Tags: </span>Todo, Jujutsu Kaisen, Angry, Zone ...
                       </div>
                       <div className='justify-items-end'>
-                        <PencilIcon className='h-4 w-4 justify-items-end'/>
+                        <PencilIcon className='h-4 w-4 hover:cursor-pointer hover:scale-105 active:scale-105'/>
                       </div>
                     </div>
                   </div>
