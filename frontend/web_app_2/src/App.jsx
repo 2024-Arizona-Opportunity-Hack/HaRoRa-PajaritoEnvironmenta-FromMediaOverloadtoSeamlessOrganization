@@ -31,7 +31,7 @@ function App() {
             <div className="divider h-px"></div>
             <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mx-3'>
                 {/* search results */}
-                <ImageCard src={'https://preview.redd.it/this-guy-todo-aoi-would-be-so-amazing-in-real-life-its-crazy-v0-re8ime34w61d1.jpeg?auto=webp&s=1d288e566947b6d75ed2a0ec9aed89173b220f5a'} title='He is wwatching' tags={['Todo', 'Angry', 'Watching', 'God']} />
+                <ImageCard src={'https://preview.redd.it/this-guy-todo-aoi-would-be-so-amazing-in-real-life-its-crazy-v0-re8ime34w61d1.jpeg?auto=webp&s=1d288e566947b6d75ed2a0ec9aed89173b220f5a'} dropbox_url={'https://preview.redd.it/this-guy-todo-aoi-would-be-so-amazing-in-real-life-its-crazy-v0-re8ime34w61d1.jpeg?auto=webp&s=1d288e566947b6d75ed2a0ec9aed89173b220f5a'} title='He is wwatching' tags={['Todo', 'Angry', 'Watching', 'God']} />
 
                 <div className='text-sm max-h-48'>
                   <img className='rounded-lg w-full h-5/6 object-cover hover:scale-105 active:scale-95 hover:cursor-pointer' src='https://static0.gamerantimages.com/wordpress/wp-content/uploads/2023/02/aoi-todo.jpg' />
