@@ -30,6 +30,7 @@ services:
       - POLL_WINDOW_TIME_SECS=10  # 10 secs
     volumes:
       - ./backend:/app
+      - tmp_data:/tmp/ 
     depends_on:
       - postgres
 
@@ -44,4 +45,4 @@ services:
       - backend
 
 volumes:
-  postgres_data:
+  tmp_data:

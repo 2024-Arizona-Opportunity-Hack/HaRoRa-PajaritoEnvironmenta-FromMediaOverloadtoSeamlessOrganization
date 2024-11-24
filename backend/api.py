@@ -186,7 +186,7 @@ async def upload_images(request: Request, files: List[UploadFile] = File(...), t
 def insert_image_details_in_db(file_location: str, access_token: str, account_id: str) -> str:
     # upload to dropbox
     dropbox_destination_path = "/Apps/PixQuery/images/" + os.path.basename(file_location)
-    _ = upload_to_dropbox(access_token, file_location, dropbox_destination_path)
+    _ = upload_to_dropbox(access_token, file_location, dropbox_destination_path, account_id)
     url = f"https://www.dropbox.com/home/Apps/PixQuery/images?preview={os.path.basename(file_location)}"
     thumbnail_url = image_processor.get_thumbnail(file_location)
     # extract metadata
@@ -433,7 +433,7 @@ def file_processor():
 # ===
 # Image Processing
 # ===
-def upload_to_dropbox(access_token, file_path, dropbox_path):
+def upload_to_dropbox(access_token, file_path, dropbox_path, user_id):
     url = "https://content.dropboxapi.com/2/files/upload"
     headers = {
         "Authorization": f"Bearer {access_token}",
@@ -445,15 +445,27 @@ def upload_to_dropbox(access_token, file_path, dropbox_path):
     # Open the local file in binary mode to send it in the request
     with open(file_path, "rb") as file:
         response = requests.post(url, headers=headers, data=file)
+        if response.status_code == 401:
+            user = db.read_user(user_id)
+            user.acces_token = refresh_access_token(user.refresh_token)
+            db.update_user(user.user_id, user)
+            headers['Authorization'] = f"Bearer {user.access_token}"
+            response = requests.post(url, headers=headers, data=file)
     return response.json() if response.status_code == 200 else {"error": response.text}
 
 
-def add_tag_to_dropbox_file(access_token: str, path: str, tag_text: str) -> None:
+def add_tag_to_dropbox_file(access_token: str, path: str, tag_text: str, user_id: str) -> None:
     url: str = "https://api.dropboxapi.com/2/files/tags/add"
     headers: dict = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
     data: dict = {"path": path, "tag_text": tag_text}
 
     response: requests.Response = requests.post(url, headers=headers, data=json.dumps(data))
+    if response.status_code == 401:
+        user = db.read_user(user_id)
+        user.acces_token = refresh_access_token(user.refresh_token)
+        db.update_user(user.user_id, user)
+        headers['Authorization'] = f"Bearer {user.access_token}"
+        response: requests.Response = requests.post(url, headers=headers, data=json.dumps(data))
     if response.status_code == 200:
         print("Tag added successfully.")
     else:
@@ -476,7 +488,7 @@ def process_file(
     tags = ",".join(final_tags_list)
     # push tags to dropbox
     for t in final_tags_list:
-        add_tag_to_dropbox_file(access_token, dropbox_destination_path, t.replace(" ", "_"))
+        add_tag_to_dropbox_file(access_token, dropbox_destination_path, t.replace(" ", "_"), account_id)
     # get template id for curr user
     user = db.read_user(account_id)
     template_id = user.template_id
@@ -495,6 +507,15 @@ def process_file(
         json=payload_data,
         headers={"Authorization": f"Bearer {access_token}"},
     )
+    if res.status_code == 401:
+        user = db.read_user(account_id)
+        user.acces_token = refresh_access_token(user.refresh_token)
+        db.update_user(user.user_id, user)
+        res = requests.post(
+            "https://api.dropboxapi.com/2/file_properties/properties/add",
+            json=payload_data,
+            headers={"Authorization": f"Bearer {user.access_token}"},
+        )
     if res.status_code != 200 and res.status_code != 409:
         res.raise_for_status()
 
@@ -697,26 +718,53 @@ def list_dropbox_folder(access_token: str, filepath: str, cursor: str | None = N
     else:
         url = "https://api.dropboxapi.com/2/files/list_folder/continue"
         data = {"cursor": cursor}
-    response = requests.post(url, headers=headers, json=data)
-    return response.json()
+    return requests.post(url, headers=headers, json=data)
 
+
+def refresh_access_token(refresh_token):
+    token_url = "https://api.dropboxapi.com/oauth2/token"
+    data = {
+        "grant_type": "refresh_token",
+        "refresh_token": refresh_token,
+        "client_id": os.environ["DROPBOX_CLIENT_ID"],
+        "client_secret": os.environ["DROPBOX_CLIENT_SECRET"]
+    }
+    
+    response = requests.post(token_url, data=data)
+    
+    if response.status_code == 200:
+        new_tokens = response.json()
+        return new_tokens['access_token']
+    else:
+        raise Exception(f"Error refreshing token: {response.status_code} - {response.text}")
 
 def pol_from_dropbox():
     while True:
         try:
             # get all users
             users_list = db.get_all_users()
+            print('Users list:', [user.user_name for user in users_list])
             for user in users_list:
                 print(f"Looking into user: {user.user_name}")
                 ROOT_PATH = "/Apps/PixQuery/images"
                 while True:
-                    res = list_dropbox_folder(user.access_token, ROOT_PATH, user.cursor)
-                    user.cursor = res["cursor"]
+                    response = list_dropbox_folder(user.access_token, ROOT_PATH, user.cursor)
+                    if response.status_code == 401:
+                        # renew access_token and retry
+                        user.access_token = refresh_access_token(user.refresh_token)
+                        # udpate user
+                        db.update_user(user.user_id, user)
+                        response = list_dropbox_folder(user.access_token, ROOT_PATH, user.cursor)
+                    res = response.json()
+                    user.cursor = response.json()["cursor"]
                     for ent in res["entries"]:
                         handle_dropbox_files(ent, user.access_token, user.user_id)
                     if not res["has_more"]:
                         break
                 db.update_user(user.user_id, user)
+        except KeyError as e:
+            print('Response Status Code:', response.status_code)
+            print('Response Text:', response.text)
         except Exception as e:
             print("Error in pol_from_dropbox:", e)
             print(traceback.format_exc())
@@ -747,6 +795,13 @@ def handle_dropbox_files(ent, access_token, user_id):
         "Dropbox-API-Arg": f"{{\"path\": \"{ent['path_display']}\"}}",
     }
     file_response = requests.post(download_url, headers=download_headers)
+    if file_response.status_code == 401:
+        user = db.read_user(user_id)
+        user.acces_token = refresh_access_token(user.refresh_token)
+        db.update_user(user.user_id, user)
+        download_headers['Authorization'] = f"Bearer {user.access_token}"
+        file_response = requests.post(download_url, headers=download_headers)
+
     with open(file_path, "wb") as f:
         f.write(file_response.content)
     print(f" Downloaded: {file_name} to {file_path}")
@@ -763,5 +818,7 @@ threading.Thread(target=pol_from_dropbox, daemon=True).start()
 
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run("api:app", host="localhost", port=8080, reload=True)
+
+
+# if everytime i interacted with DropBox, I needed to wrap a retry mechanism to it, such that it checked if 401 status code was
