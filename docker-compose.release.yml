@@ -18,5 +18,9 @@ services:
       - POLL_WINDOW_TIME_SECS=${POLL_WINDOW_TIME_SECS}
     volumes:
       - ./backend:/app
+      - tmp_data:/tmp
     depends_on:
       - postgres
+
+volumes:
+  tmp_data:
