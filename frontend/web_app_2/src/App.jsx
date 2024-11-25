@@ -66,7 +66,7 @@ function App() {
           <>
             <div className='container mx-auto max-w-6xl'>
                 <div className='row-start-1 row-span-1 col-start-1 h-16 mt-6 col-span-12 grid grid-cols-6'>
-                  <div className='text-center font-grotesk font-bold text-2xl text-primary mt-1'>PixQuery</div>
+                  <div className='text-center font-grotesk font-bold text-2xl text-primary mt-1 hover:cursor-pointer active:scale-95' onClick={() => {window.location.href = '/'}}>PixQuery</div>
                   <div className='col-span-4 h-4/6'><SearchBar query={query} setQuery={setQuery} setPressedSearch={setPressedSearch} height='h-full'/></div>
                   <div className='col-start-6 grid grid-cols-4 gap-2 mt-2'>
                     <UploadIcon className='col-start-3'/>
@@ -106,7 +106,7 @@ function App() {
                 <LogoutIcon />
               </div>
 
-              <div className='row-start-2 flex flex-col-reverse row-span-1 col-start-1 col-span-4 md:col-span-6 md:col-start-4 text-center font-grotesk font-bold text-6xl text-primary'>PixQuery</div>
+              <div className='row-start-2 flex flex-col-reverse row-span-1 col-start-1 col-span-4 md:col-span-6 md:col-start-4 text-center font-grotesk font-bold text-6xl text-primary' >PixQuery</div>
 
 
               <div className='row-start-3 row-span-1 col-start-1 col-span-4 md:col-span-8 md:col-start-3 justify-items-center font-grotesk font-bold text-6xl text-primary'>
