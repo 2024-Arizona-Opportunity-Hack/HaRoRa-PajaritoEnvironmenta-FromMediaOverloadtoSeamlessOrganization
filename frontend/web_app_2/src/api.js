@@ -34,8 +34,8 @@ export const handleLogin = async () => {
 //logout
 export const handleLogout = async () => {
     try {
-        const response = await axios.get('/logout');
-        return response.data;
+        await axios.get('/logout');
+        window.location.href = '/'
     } catch (error) {
         console.log(error);
         throw new Error('Error: ' + error.message);
@@ -67,6 +67,7 @@ export const searchMedia = async (query, page = 1, pageSize = 10) => {
     try {
         // TODO: (rohan) add pagination support
         const response = await axios.get('/search', { params: { q: query } });
+        console.log(response.data)
         return response.data;
     } catch (error) {
         console.error('Error searching media:', error);
