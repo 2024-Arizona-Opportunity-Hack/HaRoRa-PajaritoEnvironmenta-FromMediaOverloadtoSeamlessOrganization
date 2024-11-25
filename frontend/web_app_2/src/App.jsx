@@ -75,7 +75,7 @@ function App() {
                 </div>
             </div>
             <div className="divider h-px"></div>
-            <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mx-3'>
+            <div className='grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8 mx-3 mb-6'>
                 {/* search results */}
                 {searchResults === null ? (
                   <div className="col-span-full text-center">Loading...</div>

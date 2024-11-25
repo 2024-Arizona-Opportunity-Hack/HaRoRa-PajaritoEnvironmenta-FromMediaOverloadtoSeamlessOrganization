@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import { useState, useRef, useCallback } from 'react';
 import { X, Trash2, Upload } from 'lucide-react';
 import { uploadFiles } from '@/api.js';
 
@@ -6,6 +6,7 @@ export default function FileUploadModal({ isOpen, onClose }) {
   const [files, setFiles] = useState([]);
   const [tags, setTags] = useState('');
   const [isDragging, setIsDragging] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
   const fileInputRef = useRef(null);
   
   const handleFileSelect = (selectedFiles) => {
@@ -46,12 +47,21 @@ export default function FileUploadModal({ isOpen, onClose }) {
     setFiles([]);
   };
 
-  const handleUpload = () => {
-    // Here you would typically send the files and tags to your server
-    uploadFiles(files, tags, undefined)
-    console.log('Files to upload:', files);
-    console.log('Tags:', tags);
-    onClose();
+
+  const handleUpload = async () => {
+    try {
+      await uploadFiles(files, tags, (progressEvent) => {
+        // Calculate the progress percentage
+        console.log(progressEvent)
+        const percentCompleted = Math.round((progressEvent.loaded * 100) / progressEvent.total);
+        setUploadProgress(percentCompleted);
+      });
+      console.log('Upload successful');
+      setFiles([])
+      onClose();
+    } catch (error) {
+      console.error('Upload failed:', error);
+    }
   };
 
   if (!isOpen) return null;
@@ -61,7 +71,7 @@ export default function FileUploadModal({ isOpen, onClose }) {
       <div className="modal-box max-w-3xl">
         <button 
           className="btn btn-sm btn-circle btn-ghost absolute right-2 top-2"
-          onClick={onClose}
+          onClick={() => {setFiles([]); onClose();}}
         >
           ✕
         </button>
@@ -156,12 +166,19 @@ export default function FileUploadModal({ isOpen, onClose }) {
             </div>
           )}
 
+          {/* Display Upload Progress */}
+          {uploadProgress > 0 && (
+            <div className="progress-bar w-full bg-gray-200 rounded-full h-2.5 mt-4">
+              <div
+                className="bg-blue-600 h-2.5 rounded-full"
+                style={{ width: `${uploadProgress}%` }}
+              ></div>
+            </div>
+          )}
+
           {/* Action Buttons */}
           <div className="modal-action">
-            <button className="btn" onClick={onClose}>
-              Cancel
-            </button>
-            <button className="btn btn-primary" onClick={handleUpload}>
+            <button className={"btn btn-primary text-base-100 hover:scale-105 " + (files.length < 1 ? 'btn-disabled' : '')} onClick={handleUpload}>
               Upload
             </button>
           </div>
@@ -173,3 +190,5 @@ export default function FileUploadModal({ isOpen, onClose }) {
     </div>
   );
 }
+
+
