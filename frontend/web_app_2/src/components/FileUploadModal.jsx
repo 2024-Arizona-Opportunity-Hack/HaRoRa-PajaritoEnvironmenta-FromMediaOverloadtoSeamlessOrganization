@@ -168,11 +168,13 @@ export default function FileUploadModal({ isOpen, onClose }) {
 
           {/* Display Upload Progress */}
           {uploadProgress > 0 && (
-            <div className="progress-bar w-full bg-gray-200 rounded-full h-2.5 mt-4">
-              <div
-                className="bg-blue-600 h-2.5 rounded-full"
-                style={{ width: `${uploadProgress}%` }}
-              ></div>
+            <div className='w-full justify-items-center'>
+              <div className="progress-bar w-full bg-gray-200 rounded-full h-2.5 mt-4">
+                <div
+                  className="bg-blue-600 h-2.5 rounded-full"
+                  style={{ width: `${uploadProgress}%` }}
+                ></div>
+              </div>
             </div>
           )}
 

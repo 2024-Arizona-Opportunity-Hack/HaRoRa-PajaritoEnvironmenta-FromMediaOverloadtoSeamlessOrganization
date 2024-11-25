@@ -100,6 +100,7 @@ async def auth_dropbox_callback(request: Request):
 
         request.session["user"] = {
             "name": user_info["name"]["display_name"],
+            "initials": user_info["name"]["abbreviated_name"],
             "email": user_info["email"],
             "account_id": user_info["account_id"],
             "access_token": access_token,
@@ -126,10 +127,11 @@ async def auth_dropbox_callback(request: Request):
             user.access_token = access_token
             user.refresh_token = refresh_token
             user.template_id = template_id
+            user.initials = user_info['name']['abbreviated_name'][:2]
             db.update_user(user.user_id, user)
     except Exception as error:
         return HTMLResponse(f"<h1>{error}</h1>")
-    return RedirectResponse(CLIENT_URL + "/search")
+    return RedirectResponse(CLIENT_URL)
 
 
 @app.get("/logout")
@@ -143,7 +145,7 @@ async def profile(request: Request):
     user = request.session.get("user")
     if not user:
         raise HTTPException(status_code=401, detail="Unauthorized")
-    return {"name": user["name"], "email": user["email"], "account_id": user["account_id"]}
+    return {"name": user["name"], "email": user["email"], "account_id": user["account_id"], "initials": user['initials']}
 
 
 # ===

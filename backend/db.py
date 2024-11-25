@@ -234,7 +234,7 @@ def check_image_exists(conn, url: str, user_id: str) -> bool:
 def create_user(conn, user: User) -> None:
     insert_query = """
     INSERT INTO users (
-      user_id, user_name, email, access_token, refresh_token, template_id, cursor
+      user_id, user_name, email, access_token, refresh_token, template_id, cursor, initials
     ) VALUES (%s, %s, %s, %s, %s, %s, %s)
     """
     params = (
@@ -245,6 +245,7 @@ def create_user(conn, user: User) -> None:
         user.refresh_token,
         user.template_id,
         user.cursor,
+        user.initials,
     )
     filled_query = insert_query % params
     print("Executing query:", filled_query)
@@ -256,7 +257,7 @@ def create_user(conn, user: User) -> None:
 @with_connection
 def read_user(conn, user_id: str) -> Optional[User]:
     select_query = """
-  SELECT user_id, user_name, email, access_token, refresh_token, template_id, cursor
+  SELECT user_id, user_name, email, access_token, refresh_token, template_id, cursor, initials
   FROM users
   WHERE user_id = %s
   """
@@ -271,13 +272,13 @@ def update_user(conn, user_id: str, user: User):
     update_query = """
   UPDATE users SET
       user_name = %s, email = %s, access_token = %s,
-      refresh_token = %s, template_id = %s, cursor = %s
+      refresh_token = %s, template_id = %s, cursor = %s, initials = %s
   WHERE user_id = %s
   """
     with conn.cursor() as cur:
         cur.execute(
             update_query,
-            (user.user_name, user.email, user.access_token, user.refresh_token, user.template_id, user.cursor, user_id),
+            (user.user_name, user.email, user.access_token, user.refresh_token, user.template_id, user.cursor, user.initials, user_id),
         )
 
 
@@ -290,10 +291,11 @@ def delete_user(conn, user_id: str):
         cur.execute(delete_query, (user_id,))
 
 
+# TODO: add pagination here, because this will grow out of hand someday
 @with_connection
 def get_all_users(conn) -> List[User]:
     select_query = """
-    SELECT user_id, user_name, email, access_token, refresh_token, template_id, cursor
+    SELECT user_id, user_name, email, access_token, refresh_token, template_id, cursor, initials
     FROM users
     """
     with conn.cursor() as cur:

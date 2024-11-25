@@ -1,13 +1,12 @@
 import { useState } from 'react';
 import FileUploadModal from '@/components/FileUploadModal';
 
-export default function UploadIcon({ className }) {
+export default function UploadIcon({ classes }) {
   const [isModalOpen, setIsModalOpen] = useState(false);
-
   return (
     <>
       <svg 
-        className={'h-6 w-6 hover:cursor-pointer hover:scale-105 active:scale-95 ' + className} 
+        className={'mt-1 h-6 w-6 hover:cursor-pointer hover:scale-105 active:scale-95 ' + (classes ? classes : '')} 
         xmlns="http://www.w3.org/2000/svg" 
         viewBox="0 0 448 512"
         onClick={() => setIsModalOpen(true)}

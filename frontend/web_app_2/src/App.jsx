@@ -1,10 +1,11 @@
 import { useState, useEffect } from 'react';
 import SearchBar from '@/components/Searchbar'
 import ImageCard from '@/components/ImageCard'
+import Avatar from '@/components/Avatar'
 import UploadIcon from '@/icons/UploadIcon'
 import LogoutIcon from '@/icons/LogoutIcon'
-import PencilIcon from '@/icons/PencilIcon'
 import { getProfileInfo, handleLogin, searchMedia } from '@/api.js'
+import DropboxLogo from '@/assets/dropbox-1.svg'; // Import Dropbox logo
 
 function App() {
   //const pressedSearch = false;
@@ -19,6 +20,7 @@ function App() {
       try {
         const response = await getProfileInfo();
         if (response && response.response) {
+          console.log(response.response)
           setUserProfile(response.response);
         } else {
           setUserProfile(null);
@@ -70,7 +72,8 @@ function App() {
                   <div className='col-span-4 h-4/6'><SearchBar query={query} setQuery={setQuery} setPressedSearch={setPressedSearch} height='h-full'/></div>
                   <div className='col-start-6 grid grid-cols-4 gap-2 mt-2'>
                     <UploadIcon className='col-start-3'/>
-                    <LogoutIcon />
+                    {/*<LogoutIcon />*/}
+                    <Avatar initials={userProfile.initials}  top_pos='top-1/2' />
                   </div>
                 </div>
             </div>
@@ -103,7 +106,8 @@ function App() {
             <div className='grid md:grid-cols-12 grid-cols-4 grid-rows-5 gap-4 h-full mt-4'>
               <div className='row-start-1 col-start-4 col-span-1 md:col-start-11 md:col-span-2 lg:col-span-1 lg:col-start-12 justify-items-end lg:mr-4 mr-2 flex flex-row-reverse grid grid-cols-2 gap-6'>
                 <UploadIcon />
-                <LogoutIcon />
+                {/*<LogoutIcon />*/}
+                <Avatar initials={userProfile.initials}/>
               </div>
 
               <div className='row-start-2 flex flex-col-reverse row-span-1 col-start-1 col-span-4 md:col-span-6 md:col-start-4 text-center font-grotesk font-bold text-6xl text-primary' >PixQuery</div>
@@ -119,7 +123,19 @@ function App() {
       )}
 
       {!userProfile && (
-        <div className='btn' onClick={handleLogin}>Login</div>
+        <div className="mt-1 p-3 flex flex-col justify-center items-center h-screen bg-base-100 text-base-content">
+          <h1 className="text-4xl font-grotesk font-bold mb-6">Welcome to PixQuery</h1>
+          <p className="text-lg mb-6">
+            Please log in to access the application.
+          </p>
+          <button
+            className="btn btn-primary py-3 px-6 flex items-center text-white hover:scale-105"
+            onClick={handleLogin}
+          >
+            <img src={DropboxLogo} alt="Dropbox Logo" className="w-6 h-6 mr-2" />
+            Login with Dropbox
+          </button>
+        </div>
       )}
     </div>
   )
