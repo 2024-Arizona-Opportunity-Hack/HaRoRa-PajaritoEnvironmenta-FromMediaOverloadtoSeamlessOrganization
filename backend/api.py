@@ -2,6 +2,7 @@ import imghdr
 import json
 import openai
 import os
+import PIL
 import requests
 import threading
 import time
@@ -28,6 +29,7 @@ app = FastAPI(root_path="/api/v1")
 BATCH_WINDOW_TIME_SECS = int(os.environ.get("BATCH_WINDOW_TIME_SECS", 4 * 3600))
 POLL_WINDOW_TIME_SECS = int(os.environ.get("POLL_WINDOW_TIME_SECS", 4 * 3600))
 GARBAGE_COLLECTION_TIME_SECS = int(os.environ.get("GARBAGE_COLLECTION_TIME_SECS", 4 * 3600))
+IGNORE_FILES = set()
 
 
 app.add_middleware(SessionMiddleware, secret_key=os.environ["FASTAPI_SESSION_SECRET_KEY"])
@@ -768,47 +770,57 @@ def pol_from_dropbox():
             print('Response Status Code:', response.status_code)
             print('Response Text:', response.text)
         except Exception as e:
-            print("Error in pol_from_dropbox:", e)
             print(traceback.format_exc())
+            print("Error in pol_from_dropbox:", e)
         finally:
             time.sleep(POLL_WINDOW_TIME_SECS)  # once in a day
 
 
 def handle_dropbox_files(ent, access_token, user_id):
-    print(f'Handling {ent["name"]} file')
-    if ent[".tag"] != "file":
-        return None
-    if not (ent["name"].lower().endswith((".jpg", ".jpeg", ".png"))):
-        return None
-    # check if already processed in DB
-    url = f"https://www.dropbox.com/home{os.path.dirname(ent['path_display'])}?preview={ent['name']}"
-    if db.check_image_exists(url, user_id):
-        return None
-    # check if in queue
-    file_name = ent["name"]
-    file_path = os.path.join("/tmp", user_id, file_name)  # Download to the folder
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
-    if db.read_file_queue(file_path) is not None:
-        return None
-    # Download the file
-    download_url = "https://content.dropboxapi.com/2/files/download"
-    download_headers = {
-        "Authorization": f"Bearer {access_token}",
-        "Dropbox-API-Arg": f"{{\"path\": \"{ent['path_display']}\"}}",
-    }
-    file_response = requests.post(download_url, headers=download_headers)
-    if file_response.status_code == 401:
-        user = db.read_user(user_id)
-        user.acces_token = refresh_access_token(user.refresh_token)
-        db.update_user(user.user_id, user)
-        download_headers['Authorization'] = f"Bearer {user.access_token}"
+    try:
+        print(f'Handling {ent["name"]} file')
+        if ent[".tag"] != "file":
+            return None
+        if not (ent["name"].lower().endswith((".jpg", ".jpeg", ".png"))):
+            return None
+        # check if already processed in DB
+        url = f"https://www.dropbox.com/home{os.path.dirname(ent['path_display'])}?preview={ent['name']}"
+        if db.check_image_exists(url, user_id):
+            return None
+        # check if in queue
+        file_name = ent["name"]
+        file_path = os.path.join("/tmp", user_id, file_name)  # Download to the folder
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        if db.read_file_queue(file_path) is not None:
+            return None
+        if file_path in IGNORE_FILES:
+            print('Ignoring file at:', file_path)
+            return None
+        # Download the file
+        download_url = "https://content.dropboxapi.com/2/files/download"
+        download_headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Dropbox-API-Arg": f"{{\"path\": \"{ent['path_display']}\"}}",
+        }
         file_response = requests.post(download_url, headers=download_headers)
+        if file_response.status_code == 401:
+            user = db.read_user(user_id)
+            user.acces_token = refresh_access_token(user.refresh_token)
+            db.update_user(user.user_id, user)
+            download_headers['Authorization'] = f"Bearer {user.access_token}"
+            file_response = requests.post(download_url, headers=download_headers)
 
-    with open(file_path, "wb") as f:
-        f.write(file_response.content)
-    print(f" Downloaded: {file_name} to {file_path}")
-    iid = insert_image_details_in_db(file_path, access_token, user_id)
-    db.create_file_queue(data_models.FileQueue(file_path, "", access_token, user_id, iid))
+        with open(file_path, "wb") as f:
+            f.write(file_response.content)
+        print(f" Downloaded: {file_name} to {file_path}")
+        iid = insert_image_details_in_db(file_path, access_token, user_id)
+        db.create_file_queue(data_models.FileQueue(file_path, "", access_token, user_id, iid))
+    except PIL.UnidentifiedImageError as e:
+        print(traceback.format_exc())
+        print('PIL is unable to identify image type')
+        IGNORE_FILES.add(file_path)
+        return None
+        # mark it as failed, and let it be.
 
 
 # Start a background thread for processing files
