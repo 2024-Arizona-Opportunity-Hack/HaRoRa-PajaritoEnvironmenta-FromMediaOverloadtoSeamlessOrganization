@@ -37,6 +37,7 @@ class User:
     refresh_token: str  # dropbox refresh token once access token expires
     template_id: str  # dropbox properties template
     cursor: Optional[str] = None
+    initials: Optional[str] = None
 
 
 @dataclasses.dataclass

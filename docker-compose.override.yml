@@ -3,13 +3,13 @@ services:
     build: ./frontend
     container_name: frontend
     volumes:
-      - ./frontend/web_app/src:/app/src
-      - ./frontend/web_app/public:/app/public
-      - ./frontend/web_app/index.html:/app/index.html
-      - ./frontend/web_app/eslint.config.js:/app/eslint.config.js
-      - ./frontend/web_app/tailwind.config.js:/app/tailwind.config.js
-      - ./frontend/web_app/vite.config.js:/app/vite.config.js
-      - ./frontend/web_app/postcss.config.js:/app/postcss.config.js
+      - ./frontend/web_app_2/src:/app/src
+      - ./frontend/web_app_2/public:/app/public
+      - ./frontend/web_app_2/index.html:/app/index.html
+      - ./frontend/web_app_2/eslint.config.js:/app/eslint.config.js
+      - ./frontend/web_app_2/tailwind.config.js:/app/tailwind.config.js
+      - ./frontend/web_app_2/vite.config.js:/app/vite.config.js
+      - ./frontend/web_app_2/postcss.config.js:/app/postcss.config.js
 
   backend:
     build: ./backend
