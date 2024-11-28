@@ -114,7 +114,7 @@ function App() {
 
 
               <div className='row-start-3 row-span-1 col-start-1 col-span-4 md:col-span-8 md:col-start-3 justify-items-center font-grotesk font-bold text-6xl text-primary'>
-                  <SearchBar query={query} setQuery={setQuery} setPressedSearch={setPressedSearch} height={'h-1/3'}/>
+                  <SearchBar query={query} setQuery={setQuery} setPressedSearch={setPressedSearch} height={'h-1/3 max-h-10'}/>
               </div>
             </div>
           </div>
