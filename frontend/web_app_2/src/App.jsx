@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import SearchBar from '@/components/Searchbar'
+import SearchBar from '@/components/SearchBar'
 import ImageCard from '@/components/ImageCard'
 import Avatar from '@/components/Avatar'
 import UploadIcon from '@/icons/UploadIcon'
