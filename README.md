@@ -20,6 +20,7 @@ export TOGETHER_API_KEY=
 export BATCH_WINDOW_TIME_SECS=60  # 1 min
 export GARBAGE_COLLECTION_TIME_SECS=3600  # 1 hr
 export POLL_WINDOW_TIME_SECS=60  # 1 min
+export APP_PORT=8083
 ```
 
 0. Add below to nginx.conf and restart:
