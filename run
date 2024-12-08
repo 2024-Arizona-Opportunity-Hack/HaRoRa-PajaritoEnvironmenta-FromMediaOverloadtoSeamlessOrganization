@@ -1,6 +1,8 @@
 #!/bin/bash
 
 source .release.env
+
+mkdir -p nginx/release/html
 cd frontend/web_app_2
 rm -rf dist
 npm i
