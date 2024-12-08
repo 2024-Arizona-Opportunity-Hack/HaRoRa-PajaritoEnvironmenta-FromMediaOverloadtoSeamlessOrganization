@@ -1,6 +1,9 @@
 services:
   backend:
-    build: ./backend
+    build:
+      context: ./backend
+      args:
+        TARGETARCH: "x86"
     environment:
       - WEBPAGE_URL=${WEBPAGE_URL}
       - PG_HOST=postgres
@@ -21,6 +24,16 @@ services:
       - tmp_data:/tmp
     depends_on:
       - postgres
+
+  server:
+    build:
+      context: ./nginx/release
+      args:
+        TARGETARCH: "x86"
+    ports:
+      - "8081:80"
+    depends_on:
+      - backend
 
 volumes:
   tmp_data:

@@ -2,8 +2,57 @@
 
 Cloud-based solution with AI-driven tagging, content-based search, and integration capabilities with existing tools
 
+## How to Run (release)
 
-## How to Run
+Setup `.release.env`
+```bash
+export WEBPAGE_URL='https://pixquery.com'
+export PG_HOST=
+export PG_PORT=
+export PG_USER=
+export PG_PASSWORD=
+export PG_DB=
+export FASTAPI_SESSION_SECRET_KEY=
+export DROPBOX_CLIENT_ID=
+export DROPBOX_CLIENT_SECRET=
+export OPENAI_API_KEY=
+export TOGETHER_API_KEY=
+export BATCH_WINDOW_TIME_SECS=60  # 1 min
+export GARBAGE_COLLECTION_TIME_SECS=3600  # 1 hr
+export POLL_WINDOW_TIME_SECS=60  # 1 min
+```
+
+0. Add below to nginx.conf and restart:
+    ```
+        server {
+            listen       80;
+            server_name  pixquery.com;
+            client_max_body_size 100M;
+
+            location / {
+                proxy_pass http://localhost:8081;
+                proxy_set_header Host $host;
+                proxy_set_header X-Real-IP $remote_addr;
+            }
+        }
+    ```
+
+1. Build Frontend
+    ```bash
+    cd frontend/web_app_2
+    rm -rf dist
+    npm i
+    npm run build
+    cp -r dist/* ../../nginx/release/html/*
+    cd ../../
+    ```
+
+2. Start docker compose
+    ```bash
+    docker-compose -f docker-compose.yml -f docker-compose.release.yml up -d
+    ```
+
+## How to Run (dev)
 
 Setup `.dev.env`
 ```bash
@@ -23,23 +72,6 @@ export GARBAGE_COLLECTION_TIME_SECS=600  # 10 mins
 export POLL_WINDOW_TIME_SECS=10  # 10 secs
 ```
 
--- `.prod.env`
-```bash
-export WEBPAGE_URL='https://peec.harora.lol'
-export PG_HOST=
-export PG_PORT=
-export PG_USER=
-export PG_PASSWORD=
-export PG_DB=
-export FASTAPI_SESSION_SECRET_KEY=
-export DROPBOX_CLIENT_ID=
-export DROPBOX_CLIENT_SECRET=
-export OPENAI_API_KEY=
-export TOGETHER_API_KEY=
-export BATCH_WINDOW_TIME_SECS=60  # 1 min
-export GARBAGE_COLLECTION_TIME_SECS=3600  # 1 hr
-export POLL_WINDOW_TIME_SECS=60  # 1 min
-```
 
 0. Add below to nginx.conf and restart:
     ```
@@ -191,3 +223,14 @@ Our system uses AI models like CLIP, GPT-4 Mini, and Llama-3.1 to automatically 
 -   **Storage Flexibility & Scalability**: Enhancing storage management tools and scalability to support growing media libraries, including the ability to archive files and track storage usage.
 -   **Role-Based Access Control**: Setting up role-based permissions (e.g., admin vs. view-only) to allow secure file sharing and user access management.
 -   **Mobile Accessibility**: Exploring mobile-friendly features to allow customers to manage and access their media library on the go.
+
+---
+
+### Features To Add
+
+- [ ] Filters on Frontend
+- [ ] Solve extraction of Captured Time (if possible, else use today's date)
+- [ ] Photo Credits input
+- [ ] User should be able to add their own folders for syncing
+- [ ] Canvas API
+- [ ] A Page to view all the information about the image, based on dropbox url. Information like (Title, Caption, Tags, Photo Credits, EXIF Metadata, etc)
