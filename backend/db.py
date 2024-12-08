@@ -235,34 +235,36 @@ def create_user(conn, user: User) -> None:
     insert_query = """
     INSERT INTO users (
       user_id, user_name, email, access_token, refresh_token, template_id, cursor, initials
-    ) VALUES (%s, %s, %s, %s, %s, %s, %s)
-    """
-    params = (
-        user.user_id,
-        user.user_name,
-        user.email,
-        user.access_token,
-        user.refresh_token,
-        user.template_id,
-        user.cursor,
-        user.initials,
+    ) VALUES (
+      %(user_id)s, %(user_name)s, %(email)s, %(access_token)s, %(refresh_token)s, %(template_id)s, %(cursor)s, %(initials)s
     )
+    """
+
+    params = {
+      'user_id': user.user_id,
+      'user_name': user.user_name,
+      'email': user.email,
+      'access_token': user.access_token,
+      'refresh_token': user.refresh_token,
+      'template_id': user.template_id,
+      'cursor': user.cursor,
+      'initials': user.initials,
+    }
     filled_query = insert_query % params
     print("Executing query:", filled_query)
-
     with conn.cursor() as cur:
         cur.execute(insert_query, params)
-
 
 @with_connection
 def read_user(conn, user_id: str) -> Optional[User]:
     select_query = """
-  SELECT user_id, user_name, email, access_token, refresh_token, template_id, cursor, initials
-  FROM users
-  WHERE user_id = %s
-  """
+    SELECT user_id, user_name, email, access_token, refresh_token, template_id, cursor, initials
+    FROM users
+    WHERE user_id = %(user_id)s
+    """
+    params = {'user_id': user_id}
     with conn.cursor() as cur:
-        cur.execute(select_query, (user_id,))
+        cur.execute(select_query, params)
         result = cur.fetchone()
         return User(*result) if result else None
 
@@ -270,16 +272,28 @@ def read_user(conn, user_id: str) -> Optional[User]:
 @with_connection
 def update_user(conn, user_id: str, user: User):
     update_query = """
-  UPDATE users SET
-      user_name = %s, email = %s, access_token = %s,
-      refresh_token = %s, template_id = %s, cursor = %s, initials = %s
-  WHERE user_id = %s
-  """
+    UPDATE users SET
+        user_name = %(user_name)s, 
+        email = %(email)s, 
+        access_token = %(access_token)s,
+        refresh_token = %(refresh_token)s, 
+        template_id = %(template_id)s, 
+        cursor = %(cursor)s, 
+        initials = %(initials)s
+    WHERE user_id = %(user_id)s
+    """
+    params = {
+        'user_name': user.user_name,
+        'email': user.email,
+        'access_token': user.access_token,
+        'refresh_token': user.refresh_token,
+        'template_id': user.template_id,
+        'cursor': user.cursor,
+        'initials': user.initials,
+        'user_id': user_id
+    }
     with conn.cursor() as cur:
-        cur.execute(
-            update_query,
-            (user.user_name, user.email, user.access_token, user.refresh_token, user.template_id, user.cursor, user.initials, user_id),
-        )
+        cur.execute(update_query, params)
 
 
 @with_connection

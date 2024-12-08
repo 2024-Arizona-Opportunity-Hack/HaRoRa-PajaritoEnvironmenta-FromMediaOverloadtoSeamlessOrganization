@@ -100,13 +100,6 @@ async def auth_dropbox_callback(request: Request):
         user_info = user_info_response.json()
         print(user_info)
 
-        request.session["user"] = {
-            "name": user_info["name"]["display_name"],
-            "initials": user_info["name"]["abbreviated_name"],
-            "email": user_info["email"],
-            "account_id": user_info["account_id"],
-            "access_token": access_token,
-        }
         # create folder
         create_dropbox_folder(access_token, "/Apps/PixQuery/images")
         template_id = create_dropbox_template(access_token)
@@ -131,6 +124,14 @@ async def auth_dropbox_callback(request: Request):
             user.template_id = template_id
             user.initials = user_info['name']['abbreviated_name'][:2]
             db.update_user(user.user_id, user)
+
+        request.session["user"] = {
+            "name": user_info["name"]["display_name"],
+            "initials": user_info["name"]["abbreviated_name"],
+            "email": user_info["email"],
+            "account_id": user_info["account_id"],
+            "access_token": access_token,
+        }
     except Exception as error:
         return HTMLResponse(f"<h1>{error}</h1>")
     return RedirectResponse(CLIENT_URL)
