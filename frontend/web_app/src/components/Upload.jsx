@@ -75,7 +75,7 @@ function Upload() {
             <div
                 {...getRootProps()}
                 className={`border-4 border-dashed rounded-xl p-10 flex flex-col items-center justify-center cursor-pointer transition ${
-                    isDragging ? 'border-blue-500 bg-blue-50' : 'border-gray-300'
+                    isDragging ? 'border-primary' : 'border-secondary'
                 }`}
             >
                 <input {...getInputProps()} />
@@ -90,7 +90,7 @@ function Upload() {
                                         className="w-full h-24 object-cover rounded"
                                     />
                                     {isUploading && (
-                                        <div className="absolute inset-0 flex items-center justify-center bg-white bg-opacity-75">
+                                        <div className="absolute inset-0 flex items-center justify-center bg-secondary bg-opacity-75">
                                             <span className="loading loading-spinner loading-md"></span>
                                         </div>
                                     )}
@@ -104,14 +104,14 @@ function Upload() {
                                     value={uploadProgress}
                                     max="100"
                                 ></progress>
-                                <p className="text-center text-gray-600">{uploadProgress}%</p>
+                                <p className="text-center text-primary">{uploadProgress}%</p>
                             </div>
                         )}
                     </>
                 ) : (
                     <>
                         <svg
-                            className="w-16 h-16 text-gray-400 mb-4"
+                            className="w-16 h-16 text-secondary mb-4"
                             fill="none"
                             stroke="currentColor"
                             viewBox="0 0 48 48"
@@ -125,7 +125,7 @@ function Upload() {
                             />
                             <path d="M4 32l20 12 20-12" strokeLinecap="round" strokeLinejoin="round" strokeWidth="4" />
                         </svg>
-                        <p className="text-lg text-gray-600 text-center">
+                        <p className="text-lg text-secondary text-center">
                             Drag and drop files here, or click to select files
                         </p>
                     </>
@@ -134,11 +134,11 @@ function Upload() {
 
             {/* Tags Input */}
             <div className="mt-6">
-                <label className="block text-primary text-sm font-bold mb-2">Tags</label>
+                <label className="block text-primary text-base font-bold mb-2">Tags</label>
                 <input
                     type="text"
                     placeholder="Enter tags separated by commas"
-                    className="input input-bordered w-full"
+                    className="input input-bordered w-full bg-neutral placeholder-secondary"
                     value={tags}
                     onChange={(e) => setTags(e.target.value)}
                     disabled={isUploading} // Disable input during upload
@@ -147,7 +147,7 @@ function Upload() {
 
             {/* Upload Button */}
             <button
-                className="btn btn-primary mt-6 w-full"
+                className="btn btn-primary text-neutral mt-6 w-full hover:scale-105"
                 onClick={handleUpload}
                 disabled={isUploading || files.length === 0}
             >

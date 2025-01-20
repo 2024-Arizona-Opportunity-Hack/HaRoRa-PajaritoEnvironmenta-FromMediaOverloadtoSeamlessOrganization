@@ -7,9 +7,9 @@ class ImageDetail:
     url: str  # primary key
     user_id: str  # primary key of the user that added this Imagein table
     thumbnail_url: str
-    title: str
-    caption: str  # scipdf gives authors in ';' separated string
-    tags: str
+    title: str | None
+    caption: str | None
+    tags: str | None
     coordinates: List[float] | None
     capture_time: str | None  # dd/mm/yyyy
     extended_meta: str | None
@@ -37,6 +37,7 @@ class User:
     refresh_token: str  # dropbox refresh token once access token expires
     template_id: str  # dropbox properties template
     cursor: Optional[str] = None
+    initials: Optional[str] = None
 
 
 @dataclasses.dataclass
@@ -45,6 +46,7 @@ class FileQueue:
     tag_list: str  # comma separated tags
     access_token: str  # user access_token
     user_id: str  # user id
+    image_id: str  # image_id in db
     batch_id: str | None = None  # updated once we submit the file to openai batch job
     is_saved_to_db: bool = False  # whether saved the final image object to DB
     is_cleaned_from_disk: bool = False  # whether the image is removed from tmp file loc on disk

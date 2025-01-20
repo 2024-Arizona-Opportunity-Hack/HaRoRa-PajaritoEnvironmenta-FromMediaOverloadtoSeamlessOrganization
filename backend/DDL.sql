@@ -3,52 +3,53 @@ EXTENSION IF NOT EXISTS vector;
 CREATE
 EXTENSION IF NOT EXISTS postgis;
 
+
 CREATE TABLE IF NOT EXISTS users (
-  user_id TEXT PRIMARY KEY,  -- dropbox account
-  user_name TEXT NOT NULL,   -- dropbox username
-  email TEXT NOT NULL,       -- dropbox email
-  access_token TEXT NOT NULL, -- dropbox access token for the user for current app
-  refresh_token TEXT NOT NULL, -- dropbox refresh token once access token expires
+  user_id TEXT PRIMARY KEY,  
+  user_name TEXT NOT NULL,   
+  email TEXT NOT NULL,       
+  access_token TEXT NOT NULL, 
+  refresh_token TEXT NOT NULL, 
   template_id TEXT NOT NULL,
-  cursor TEXT,               -- optional cursor
-  updated_at                    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  created_at                    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  cursor TEXT,               
+  initials VARCHAR(3),
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
-
--- Table creation
-CREATE TABLE IF NOT EXISTS image_detail
-(
-    uuid                          UUID PRIMARY KEY,
-    user_id TEXT,
-    url                           TEXT,
-    thumbnail_url                 TEXT,
-    title                         TEXT,
-    caption                       TEXT,
-    tags                          TEXT,
-    title_caption_tags_fts_vector tsvector generated always as (to_tsvector('english', COALESCE(tags, '') || ' ' ||
-                                                                                       COALESCE(title, '') || ' ' ||
-                                                                                       COALESCE(caption, ''))) stored,
-    embedding_vector              VECTOR(512),
-    coordinates                   GEOMETRY(POINT, 4326),
-    capture_time                  TIMESTAMP,
-    extended_meta                 JSON,
-    season                        TEXT,
-    updated_at                    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    created_at                    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+CREATE TABLE IF NOT EXISTS image_detail (
+  uuid UUID PRIMARY KEY,
+  user_id TEXT NOT NULL,
+  url TEXT NOT NULL,
+  thumbnail_url TEXT NOT NULL,
+  title TEXT,
+  caption TEXT,
+  tags TEXT,
+  title_caption_tags_fts_vector tsvector generated always as (to_tsvector('english', COALESCE(tags, '') || ' ' ||
+                                                                                   COALESCE(title, '') || ' ' ||
+                                                                                   COALESCE(caption, ''))) stored,
+  embedding_vector VECTOR(512),
+  coordinates GEOMETRY(POINT, 4326),
+  capture_time TIMESTAMP,
+  extended_meta JSON,
+  season TEXT,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
-
 
 CREATE TABLE IF NOT EXISTS FileQueue (
   tmp_file_loc TEXT PRIMARY KEY,
   tag_list TEXT NOT NULL,
   access_token TEXT NOT NULL,
   user_id TEXT NOT NULL,
+  image_id TEXT NOT NULL,
   batch_id TEXT,
   is_saved_to_db BOOLEAN DEFAULT FALSE,
   is_cleaned_from_disk BOOLEAN DEFAULT FALSE,
-  updated_at                    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  created_at                    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  FOREIGN KEY (user_id) REFERENCES users(user_id) ON DELETE CASCADE
 );
 
 CREATE TABLE IF NOT EXISTS BatchQueue (
@@ -61,9 +62,20 @@ CREATE TABLE IF NOT EXISTS BatchQueue (
   are_all_files_updated_in_db BOOLEAN DEFAULT FALSE,
   are_files_deleted_from_oai_storage BOOLEAN DEFAULT FALSE,
   is_cleaned_from_disk BOOLEAN DEFAULT FALSE,
-  updated_at                    TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-  created_at                    TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+
+
+CREATE
+OR REPLACE FUNCTION update_fts_col()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.title_caption_tags_fts_vector = to_tsvector('english', COALESCE(tags, '') || ' ' || COALESCE(title, '') || ' ' || COALESCE(caption, ''));
+  RETURN NEW;
+END;
+$$
+LANGUAGE 'plpgsql';
 
 CREATE
 OR REPLACE FUNCTION update_updated_at_column()

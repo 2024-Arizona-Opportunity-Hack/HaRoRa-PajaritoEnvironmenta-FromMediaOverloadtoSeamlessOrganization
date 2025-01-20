@@ -8,7 +8,8 @@ import SearchPage from './pages/SearchPage';
 import ProtectedRoute from './components/ProtectedRoute';
 function App() {
   return (
-    <Router>
+    <div className='bg-base-100 p-6'>
+    <Router className='font-inter text-base'>
       <Navbar />
       <Routes>
         {/* Public Route */}
@@ -22,6 +23,7 @@ function App() {
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Router>
+    </div>
   );
 }
 

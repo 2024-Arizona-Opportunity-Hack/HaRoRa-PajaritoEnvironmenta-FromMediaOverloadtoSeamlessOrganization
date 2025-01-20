@@ -2,6 +2,7 @@ import imghdr
 import json
 import openai
 import os
+import PIL
 import requests
 import threading
 import time
@@ -28,6 +29,7 @@ app = FastAPI(root_path="/api/v1")
 BATCH_WINDOW_TIME_SECS = int(os.environ.get("BATCH_WINDOW_TIME_SECS", 4 * 3600))
 POLL_WINDOW_TIME_SECS = int(os.environ.get("POLL_WINDOW_TIME_SECS", 4 * 3600))
 GARBAGE_COLLECTION_TIME_SECS = int(os.environ.get("GARBAGE_COLLECTION_TIME_SECS", 4 * 3600))
+IGNORE_FILES = set()
 
 
 app.add_middleware(SessionMiddleware, secret_key=os.environ["FASTAPI_SESSION_SECRET_KEY"])
@@ -46,6 +48,8 @@ app.add_middleware(
     allow_headers=["*"],  # Allows all headers
 )
 
+db.check_and_create_tables()
+
 # ===
 # AUTH
 # ===
@@ -58,8 +62,7 @@ CLIENT_URL = os.environ["WEBPAGE_URL"]
 
 @app.get("/login")
 async def login(request: Request):
-    redirect_uri = request.url_for("auth_dropbox_callback")
-    # redirect_uri = "https://peec.harora.lol/api/auth/dropbox/callback"
+    redirect_uri = CLIENT_URL + '/api/v1/auth/dropbox/callback'
     auth_params = {
         "client_id": os.environ["DROPBOX_CLIENT_ID"],
         "redirect_uri": redirect_uri,
@@ -73,8 +76,7 @@ async def login(request: Request):
 @app.get("/auth/dropbox/callback")
 async def auth_dropbox_callback(request: Request):
     auth_code = request.query_params["code"]
-    redirect_uri = request.url_for("auth_dropbox_callback")
-    # redirect_uri = "https://peec.harora.lol/api/auth/dropbox/callback"
+    redirect_uri = CLIENT_URL + '/api/v1/auth/dropbox/callback'
     try:
         token_data = {
             "code": auth_code,
@@ -98,12 +100,6 @@ async def auth_dropbox_callback(request: Request):
         user_info = user_info_response.json()
         print(user_info)
 
-        request.session["user"] = {
-            "name": user_info["name"]["display_name"],
-            "email": user_info["email"],
-            "account_id": user_info["account_id"],
-            "access_token": access_token,
-        }
         # create folder
         create_dropbox_folder(access_token, "/Apps/PixQuery/images")
         template_id = create_dropbox_template(access_token)
@@ -126,10 +122,19 @@ async def auth_dropbox_callback(request: Request):
             user.access_token = access_token
             user.refresh_token = refresh_token
             user.template_id = template_id
+            user.initials = user_info['name']['abbreviated_name'][:2]
             db.update_user(user.user_id, user)
+
+        request.session["user"] = {
+            "name": user_info["name"]["display_name"],
+            "initials": user_info["name"]["abbreviated_name"],
+            "email": user_info["email"],
+            "account_id": user_info["account_id"],
+            "access_token": access_token,
+        }
     except Exception as error:
         return HTMLResponse(f"<h1>{error}</h1>")
-    return RedirectResponse(CLIENT_URL + "/upload")
+    return RedirectResponse(CLIENT_URL)
 
 
 @app.get("/logout")
@@ -143,7 +148,7 @@ async def profile(request: Request):
     user = request.session.get("user")
     if not user:
         raise HTTPException(status_code=401, detail="Unauthorized")
-    return {"name": user["name"], "email": user["email"], "account_id": user["account_id"]}
+    return {"name": user["name"], "email": user["email"], "account_id": user["account_id"], "initials": user['initials']}
 
 
 # ===
@@ -177,9 +182,67 @@ async def upload_images(request: Request, files: List[UploadFile] = File(...), t
         os.makedirs(os.path.dirname(file_location), exist_ok=True)
         with open(file_location, "wb") as buffer:
             buffer.write(await file.read())
-        db.create_file_queue(data_models.FileQueue(file_location, tags, access_token, account_id))
+
+        iid = insert_image_details_in_db(file_location, access_token, account_id)
+        db.create_file_queue(data_models.FileQueue(file_location, tags, access_token, account_id, iid))
+
     return {"uploaded_files": uploaded_files}
 
+def insert_image_details_in_db(file_location: str, access_token: str, account_id: str) -> str:
+    # upload to dropbox
+    dropbox_destination_path = "/Apps/PixQuery/images/" + os.path.basename(file_location)
+    _ = upload_to_dropbox(access_token, file_location, dropbox_destination_path, account_id)
+    url = f"https://www.dropbox.com/home/Apps/PixQuery/images?preview={os.path.basename(file_location)}"
+    thumbnail_url = image_processor.get_thumbnail(file_location)
+    # extract metadata
+    print("Extracting metadata from image ...")
+    img_metadata = image_processor.extract_image_metadata(file_location)
+    coords = None
+    capture_time_str = None
+    season = None
+    if img_metadata:
+        lat = img_metadata.get("latitude", None)
+        long = img_metadata.get("longitude", None)
+        if lat is not None and long is not None:
+            coords = [lat, long]
+
+        capture_time = img_metadata["capture_date"]
+        if capture_time is not None:
+            capture_time = datetime.strptime(capture_time, "%Y:%m:%d %H:%M:%S")
+            capture_time_str = capture_time.strftime("%d/%m/%Y")
+            # based on month get season as either summer, fall, winter, spring
+            month = capture_time.month
+            if month in [12, 1, 2]:
+                season = "winter"
+            elif month in [3, 4, 5]:
+                season = "spring"
+            elif month in [6, 7, 8]:
+                season = "summer"
+            else:
+                season = "fall"
+    # embed image
+    print("Getting image embeddings ...")
+    while True:
+        embedding_vector = image_processor.get_image_embedding(file_location)
+        if embedding_vector is None:
+            print("get image embedding returned None")
+            continue
+        break
+    # save to db
+    iid = db.insert(
+        url=url,
+        thumbnail_url=thumbnail_url,
+        title=None,
+        caption=None,
+        tags=None,
+        embedded_vector=embedding_vector,
+        coordinates=coords,
+        capture_time=capture_time_str,
+        extended_meta=json.dumps(img_metadata) if img_metadata else None,
+        season=season,
+        user_id=account_id,
+    )
+    return iid  # image uuid in db
 
 # ===
 # Search Endpoint
@@ -187,7 +250,7 @@ async def upload_images(request: Request, files: List[UploadFile] = File(...), t
 # Geocoding function
 def get_coordinates(location):
     api_url = f"https://nominatim.openstreetmap.org/search?format=json&q={location}"
-    headers = {"User-Agent": "PEECMediaManageMent/1.0 (rohanavad007@gmail.com)"}
+    headers = {"User-Agent": "PixQuery/1.0 (rohanawhad@gmail.com)"}
     response = requests.get(api_url, headers=headers)
     data = response.json()
     if data:
@@ -204,29 +267,38 @@ async def search_files(request: Request, q: str = None):
     query = q
     print("query:", query)
     if query:
-        search_args = search_expander.get_search_args(query)
+        #search_args = search_expander.get_search_args(query)
 
         # geo args
-        if search_args.location is not None:
-            coords = get_coordinates(search_args.location)
-            distance_radius = 25_000  # 25km
-        else:
-            coords = None
-            distance_radius = None
+        #if search_args.location is not None:
+        #    coords = get_coordinates(search_args.location)
+        #    distance_radius = 25_000  # 25km
+        #else:
+        #    coords = None
+        #    distance_radius = None
 
+        coords = None
+        distance_radius = None
+
+        start_time = time.monotonic()
         query_embedding = image_processor.get_text_embedding(query)
+        query_gen_end_time = time.monotonic()
         results = db.get_search_query_result(
             query,
             query_embedding,
             user["account_id"],
-            search_args.season,
-            ",".join(search_args.tags),
-            coords,
-            distance_radius,
-            search_args.date_from,
-            search_args.date_to,
+            None,
+            None,
+            None,
+            None,
+            None,
+            None,
             match_count=50,
         )
+        results_gen_end_time = time.monotonic()
+        print(f'Query Generation took: {(query_gen_end_time - start_time) * 1e3} ms')
+        print(f'Searching in DB took: {(results_gen_end_time - query_gen_end_time) * 1e3} ms')
+
         if results is not None:
             results = [
                 dict(
@@ -234,7 +306,7 @@ async def search_files(request: Request, q: str = None):
                     thumbnail_url=x.thumbnail_url,
                     title=x.title,
                     caption=x.caption,
-                    tags=x.tags.split(","),
+                    tags=x.tags.split(",") if x.tags else None,
                     season=x.season,
                     uuid=x.uuid,
                 )
@@ -340,6 +412,7 @@ def file_processor():
                                 [y.strip() for y in x.tag_list.split(",") if y.strip()],
                                 x.access_token,
                                 x.user_id,
+                                x.image_id,
                             )
                             for x in unbatched_files
                         ]
@@ -365,7 +438,7 @@ def file_processor():
 # ===
 # Image Processing
 # ===
-def upload_to_dropbox(access_token, file_path, dropbox_path):
+def upload_to_dropbox(access_token, file_path, dropbox_path, user_id):
     url = "https://content.dropboxapi.com/2/files/upload"
     headers = {
         "Authorization": f"Bearer {access_token}",
@@ -377,15 +450,27 @@ def upload_to_dropbox(access_token, file_path, dropbox_path):
     # Open the local file in binary mode to send it in the request
     with open(file_path, "rb") as file:
         response = requests.post(url, headers=headers, data=file)
+        if response.status_code == 401:
+            user = db.read_user(user_id)
+            user.acces_token = refresh_access_token(user.refresh_token)
+            db.update_user(user.user_id, user)
+            headers['Authorization'] = f"Bearer {user.access_token}"
+            response = requests.post(url, headers=headers, data=file)
     return response.json() if response.status_code == 200 else {"error": response.text}
 
 
-def add_tag_to_dropbox_file(access_token: str, path: str, tag_text: str) -> None:
+def add_tag_to_dropbox_file(access_token: str, path: str, tag_text: str, user_id: str) -> None:
     url: str = "https://api.dropboxapi.com/2/files/tags/add"
     headers: dict = {"Authorization": f"Bearer {access_token}", "Content-Type": "application/json"}
     data: dict = {"path": path, "tag_text": tag_text}
 
     response: requests.Response = requests.post(url, headers=headers, data=json.dumps(data))
+    if response.status_code == 401:
+        user = db.read_user(user_id)
+        user.acces_token = refresh_access_token(user.refresh_token)
+        db.update_user(user.user_id, user)
+        headers['Authorization'] = f"Bearer {user.access_token}"
+        response: requests.Response = requests.post(url, headers=headers, data=json.dumps(data))
     if response.status_code == 200:
         print("Tag added successfully.")
     else:
@@ -393,13 +478,13 @@ def add_tag_to_dropbox_file(access_token: str, path: str, tag_text: str) -> None
 
 
 def process_file(
-    file_path: str, tags_list: list[str], access_token: str, img_details: dict[str, str | list[str]], account_id: str
+    file_path: str, tags_list: list[str], access_token: str, img_details: dict[str, str | list[str]], account_id: str, image_id: str
 ):
     dropbox_destination_path = "/Apps/PixQuery/images/" + os.path.basename(file_path)
-    response = upload_to_dropbox(access_token, file_path, dropbox_destination_path)
-    print(response)
-    url = f"https://www.dropbox.com/home/Apps/PixQuery/images?preview={os.path.basename(file_path)}"
-    thumbnail_url = image_processor.get_thumbnail(file_path)
+    #response = upload_to_dropbox(access_token, file_path, dropbox_destination_path)
+    #print(response)
+    #url = f"https://www.dropbox.com/home/Apps/PixQuery/images?preview={os.path.basename(file_path)}"
+    #thumbnail_url = image_processor.get_thumbnail(file_path)
 
     print("Getting title, caption, and tags ...")
     title = img_details["title"]
@@ -408,7 +493,7 @@ def process_file(
     tags = ",".join(final_tags_list)
     # push tags to dropbox
     for t in final_tags_list:
-        add_tag_to_dropbox_file(access_token, dropbox_destination_path, t.replace(" ", "_"))
+        add_tag_to_dropbox_file(access_token, dropbox_destination_path, t.replace(" ", "_"), account_id)
     # get template id for curr user
     user = db.read_user(account_id)
     template_id = user.template_id
@@ -427,17 +512,27 @@ def process_file(
         json=payload_data,
         headers={"Authorization": f"Bearer {access_token}"},
     )
+    if res.status_code == 401:
+        user = db.read_user(account_id)
+        user.acces_token = refresh_access_token(user.refresh_token)
+        db.update_user(user.user_id, user)
+        res = requests.post(
+            "https://api.dropboxapi.com/2/file_properties/properties/add",
+            json=payload_data,
+            headers={"Authorization": f"Bearer {user.access_token}"},
+        )
     if res.status_code != 200 and res.status_code != 409:
         res.raise_for_status()
 
-    print("Getting image embeddings ...")
-    while True:
-        embedding_vector = image_processor.get_image_embedding(file_path)
-        if embedding_vector is None:
-            print("get image embedding returned None")
-            continue
-        break
+    #print("Getting image embeddings ...")
+    #while True:
+    #    embedding_vector = image_processor.get_image_embedding(file_path)
+    #    if embedding_vector is None:
+    #        print("get image embedding returned None")
+    #        continue
+    #    break
 
+    '''
     # extract_image_metadata
     print("Extracting metadata from image ...")
     img_metadata = image_processor.extract_image_metadata(file_path)
@@ -477,6 +572,8 @@ def process_file(
         season=season,
         user_id=account_id,
     )
+    '''
+    db.update_with_title_tags_caption(image_id, title, caption, tags)
     db.mark_file_as_saved(file_path)
     print(f"Processed file: {file_path}")
 
@@ -509,6 +606,7 @@ def compute_embeddings_and_metadata_and_push_to_db(
                 batch_metadata[image_path]["access_token"],
                 img_details.model_dump(),
                 batch_metadata[image_path]["account_id"],
+                batch_metadata[image_path]["image_id"],
             )
         try:
             os.remove(image_path)
@@ -625,60 +723,105 @@ def list_dropbox_folder(access_token: str, filepath: str, cursor: str | None = N
     else:
         url = "https://api.dropboxapi.com/2/files/list_folder/continue"
         data = {"cursor": cursor}
-    response = requests.post(url, headers=headers, json=data)
-    return response.json()
+    return requests.post(url, headers=headers, json=data)
 
+
+def refresh_access_token(refresh_token):
+    token_url = "https://api.dropboxapi.com/oauth2/token"
+    data = {
+        "grant_type": "refresh_token",
+        "refresh_token": refresh_token,
+        "client_id": os.environ["DROPBOX_CLIENT_ID"],
+        "client_secret": os.environ["DROPBOX_CLIENT_SECRET"]
+    }
+    
+    response = requests.post(token_url, data=data)
+    
+    if response.status_code == 200:
+        new_tokens = response.json()
+        return new_tokens['access_token']
+    else:
+        raise Exception(f"Error refreshing token: {response.status_code} - {response.text}")
 
 def pol_from_dropbox():
     while True:
         try:
             # get all users
             users_list = db.get_all_users()
+            print('Users list:', [user.user_name for user in users_list])
             for user in users_list:
                 print(f"Looking into user: {user.user_name}")
                 ROOT_PATH = "/Apps/PixQuery/images"
                 while True:
-                    res = list_dropbox_folder(user.access_token, ROOT_PATH, user.cursor)
-                    user.cursor = res["cursor"]
+                    response = list_dropbox_folder(user.access_token, ROOT_PATH, user.cursor)
+                    if response.status_code == 401:
+                        # renew access_token and retry
+                        user.access_token = refresh_access_token(user.refresh_token)
+                        # udpate user
+                        db.update_user(user.user_id, user)
+                        response = list_dropbox_folder(user.access_token, ROOT_PATH, user.cursor)
+                    res = response.json()
+                    user.cursor = response.json()["cursor"]
                     for ent in res["entries"]:
                         handle_dropbox_files(ent, user.access_token, user.user_id)
                     if not res["has_more"]:
                         break
                 db.update_user(user.user_id, user)
+        except KeyError as e:
+            print('Response Status Code:', response.status_code)
+            print('Response Text:', response.text)
         except Exception as e:
-            print("Error in pol_from_dropbox:", e)
             print(traceback.format_exc())
+            print("Error in pol_from_dropbox:", e)
         finally:
             time.sleep(POLL_WINDOW_TIME_SECS)  # once in a day
 
 
 def handle_dropbox_files(ent, access_token, user_id):
-    print(f'Handling {ent["name"]} file')
-    if ent[".tag"] != "file":
+    try:
+        print(f'Handling {ent["name"]} file')
+        if ent[".tag"] != "file":
+            return None
+        if not (ent["name"].lower().endswith((".jpg", ".jpeg", ".png"))):
+            return None
+        # check if already processed in DB
+        url = f"https://www.dropbox.com/home{os.path.dirname(ent['path_display'])}?preview={ent['name']}"
+        if db.check_image_exists(url, user_id):
+            return None
+        # check if in queue
+        file_name = ent["name"]
+        file_path = os.path.join("/tmp", user_id, file_name)  # Download to the folder
+        os.makedirs(os.path.dirname(file_path), exist_ok=True)
+        if db.read_file_queue(file_path) is not None:
+            return None
+        if file_path in IGNORE_FILES:
+            print('Ignoring file at:', file_path)
+            return None
+        # Download the file
+        download_url = "https://content.dropboxapi.com/2/files/download"
+        download_headers = {
+            "Authorization": f"Bearer {access_token}",
+            "Dropbox-API-Arg": f"{{\"path\": \"{ent['path_display']}\"}}",
+        }
+        file_response = requests.post(download_url, headers=download_headers)
+        if file_response.status_code == 401:
+            user = db.read_user(user_id)
+            user.acces_token = refresh_access_token(user.refresh_token)
+            db.update_user(user.user_id, user)
+            download_headers['Authorization'] = f"Bearer {user.access_token}"
+            file_response = requests.post(download_url, headers=download_headers)
+
+        with open(file_path, "wb") as f:
+            f.write(file_response.content)
+        print(f" Downloaded: {file_name} to {file_path}")
+        iid = insert_image_details_in_db(file_path, access_token, user_id)
+        db.create_file_queue(data_models.FileQueue(file_path, "", access_token, user_id, iid))
+    except PIL.UnidentifiedImageError as e:
+        print(traceback.format_exc())
+        print('PIL is unable to identify image type')
+        IGNORE_FILES.add(file_path)
         return None
-    if not (ent["name"].lower().endswith((".jpg", ".jpeg", ".png"))):
-        return None
-    # check if already processed in DB
-    url = f"https://www.dropbox.com/home{os.path.dirname(ent['path_display'])}?preview={ent['name']}"
-    if db.check_image_exists(url, user_id):
-        return None
-    # check if in queue
-    file_name = ent["name"]
-    file_path = os.path.join("/tmp", user_id, file_name)  # Download to the folder
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
-    if db.read_file_queue(file_path) is not None:
-        return None
-    # Download the file
-    download_url = "https://content.dropboxapi.com/2/files/download"
-    download_headers = {
-        "Authorization": f"Bearer {access_token}",
-        "Dropbox-API-Arg": f"{{\"path\": \"{ent['path_display']}\"}}",
-    }
-    file_response = requests.post(download_url, headers=download_headers)
-    with open(file_path, "wb") as f:
-        f.write(file_response.content)
-    print(f" Downloaded: {file_name} to {file_path}")
-    db.create_file_queue(data_models.FileQueue(file_path, "", access_token, user_id))
+        # mark it as failed, and let it be.
 
 
 # Start a background thread for processing files
@@ -690,5 +833,7 @@ threading.Thread(target=pol_from_dropbox, daemon=True).start()
 
 if __name__ == "__main__":
     import uvicorn
-
     uvicorn.run("api:app", host="localhost", port=8080, reload=True)
+
+
+# if everytime i interacted with DropBox, I needed to wrap a retry mechanism to it, such that it checked if 401 status code was

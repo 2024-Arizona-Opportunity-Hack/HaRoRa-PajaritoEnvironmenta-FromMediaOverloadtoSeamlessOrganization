@@ -42,7 +42,7 @@ def with_connection(func):
 @with_connection
 def create_tables(conn):
     cur = conn.cursor()
-    with open("./database/DDL.sql", "r") as f:
+    with open("./DDL.sql", "r") as f:
         cur.execute(f.read())
     cur.close()
 
@@ -155,6 +155,9 @@ def get_search_query_result(
         return [data_models.ImageDetailResult(*x) for x in result] if result else None
 
 
+# ===
+# ImageDetail
+# ===
 @with_connection
 def insert(
     conn,
@@ -191,7 +194,12 @@ def insert(
            """
     with conn.cursor() as cur:
         cur.execute(insert_query, entry)
+    return entry[0]  # uuid
 
+@with_connection
+def update_with_title_tags_caption(conn, uuid, title, caption, tags):
+    update_query = 'UPDATE image_detail SET title = %s, caption = %s, tags = %s WHERE uuid = %s'
+    with conn.cursor() as cur: cur.execute(update_query, (title, caption, tags, uuid))
 
 @with_connection
 def update_tags(conn, uuid: str, tags: str):
@@ -226,34 +234,37 @@ def check_image_exists(conn, url: str, user_id: str) -> bool:
 def create_user(conn, user: User) -> None:
     insert_query = """
     INSERT INTO users (
-      user_id, user_name, email, access_token, refresh_token, template_id, cursor
-    ) VALUES (%s, %s, %s, %s, %s, %s, %s)
-    """
-    params = (
-        user.user_id,
-        user.user_name,
-        user.email,
-        user.access_token,
-        user.refresh_token,
-        user.template_id,
-        user.cursor,
+      user_id, user_name, email, access_token, refresh_token, template_id, cursor, initials
+    ) VALUES (
+      %(user_id)s, %(user_name)s, %(email)s, %(access_token)s, %(refresh_token)s, %(template_id)s, %(cursor)s, %(initials)s
     )
+    """
+
+    params = {
+      'user_id': user.user_id,
+      'user_name': user.user_name,
+      'email': user.email,
+      'access_token': user.access_token,
+      'refresh_token': user.refresh_token,
+      'template_id': user.template_id,
+      'cursor': user.cursor,
+      'initials': user.initials,
+    }
     filled_query = insert_query % params
     print("Executing query:", filled_query)
-
     with conn.cursor() as cur:
         cur.execute(insert_query, params)
-
 
 @with_connection
 def read_user(conn, user_id: str) -> Optional[User]:
     select_query = """
-  SELECT user_id, user_name, email, access_token, refresh_token, template_id, cursor
-  FROM users
-  WHERE user_id = %s
-  """
+    SELECT user_id, user_name, email, access_token, refresh_token, template_id, cursor, initials
+    FROM users
+    WHERE user_id = %(user_id)s
+    """
+    params = {'user_id': user_id}
     with conn.cursor() as cur:
-        cur.execute(select_query, (user_id,))
+        cur.execute(select_query, params)
         result = cur.fetchone()
         return User(*result) if result else None
 
@@ -261,16 +272,28 @@ def read_user(conn, user_id: str) -> Optional[User]:
 @with_connection
 def update_user(conn, user_id: str, user: User):
     update_query = """
-  UPDATE users SET
-      user_name = %s, email = %s, access_token = %s,
-      refresh_token = %s, template_id = %s, cursor = %s
-  WHERE user_id = %s
-  """
+    UPDATE users SET
+        user_name = %(user_name)s, 
+        email = %(email)s, 
+        access_token = %(access_token)s,
+        refresh_token = %(refresh_token)s, 
+        template_id = %(template_id)s, 
+        cursor = %(cursor)s, 
+        initials = %(initials)s
+    WHERE user_id = %(user_id)s
+    """
+    params = {
+        'user_name': user.user_name,
+        'email': user.email,
+        'access_token': user.access_token,
+        'refresh_token': user.refresh_token,
+        'template_id': user.template_id,
+        'cursor': user.cursor,
+        'initials': user.initials,
+        'user_id': user_id
+    }
     with conn.cursor() as cur:
-        cur.execute(
-            update_query,
-            (user.user_name, user.email, user.access_token, user.refresh_token, user.template_id, user.cursor, user_id),
-        )
+        cur.execute(update_query, params)
 
 
 @with_connection
@@ -282,10 +305,11 @@ def delete_user(conn, user_id: str):
         cur.execute(delete_query, (user_id,))
 
 
+# TODO: add pagination here, because this will grow out of hand someday
 @with_connection
 def get_all_users(conn) -> List[User]:
     select_query = """
-    SELECT user_id, user_name, email, access_token, refresh_token, template_id, cursor
+    SELECT user_id, user_name, email, access_token, refresh_token, template_id, cursor, initials
     FROM users
     """
     with conn.cursor() as cur:
@@ -301,9 +325,9 @@ def get_all_users(conn) -> List[User]:
 def create_file_queue(conn, file_queue: FileQueue):
     insert_query = """
     INSERT INTO FileQueue (
-        tmp_file_loc, tag_list, access_token, user_id, batch_id,
+        tmp_file_loc, tag_list, access_token, user_id, image_id, batch_id,
         is_saved_to_db, is_cleaned_from_disk
-    ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+    ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
     """
     with conn.cursor() as cur:
         cur.execute(
@@ -313,6 +337,7 @@ def create_file_queue(conn, file_queue: FileQueue):
                 file_queue.tag_list,
                 file_queue.access_token,
                 file_queue.user_id,
+                file_queue.image_id,
                 file_queue.batch_id,
                 file_queue.is_saved_to_db,
                 file_queue.is_cleaned_from_disk,
@@ -323,7 +348,7 @@ def create_file_queue(conn, file_queue: FileQueue):
 @with_connection
 def read_file_queue(conn, tmp_file_loc: str) -> Optional[FileQueue]:
     select_query = """
-    SELECT tmp_file_loc, tag_list, access_token, user_id, batch_id,
+    SELECT tmp_file_loc, tag_list, access_token, user_id, image_id, batch_id,
            is_saved_to_db, is_cleaned_from_disk
     FROM FileQueue
     WHERE tmp_file_loc = %s
@@ -338,7 +363,7 @@ def read_file_queue(conn, tmp_file_loc: str) -> Optional[FileQueue]:
 def update_file_queue(conn, tmp_file_loc: str, file_queue: FileQueue):
     update_query = """
     UPDATE FileQueue SET
-        tag_list = %s, access_token = %s, user_id = %s, batch_id = %s,
+        tag_list = %s, access_token = %s, user_id = %s, image_id = %s, batch_id = %s,
         is_saved_to_db = %s, is_cleaned_from_disk = %s
     WHERE tmp_file_loc = %s
     """
@@ -349,6 +374,7 @@ def update_file_queue(conn, tmp_file_loc: str, file_queue: FileQueue):
                 file_queue.tag_list,
                 file_queue.access_token,
                 file_queue.user_id,
+                file_queue.image_id,
                 file_queue.batch_id,
                 file_queue.is_saved_to_db,
                 file_queue.is_cleaned_from_disk,
@@ -370,7 +396,7 @@ def delete_file_queue(conn, tmp_file_loc: str):
 def get_unbatched_files(conn) -> list[FileQueue] | None:
     """get list of files who have batch_id as null and is not saved to db"""
     select_query = """
-    SELECT tmp_file_loc, tag_list, access_token, user_id, batch_id,
+    SELECT tmp_file_loc, tag_list, access_token, user_id, image_id, batch_id,
            is_saved_to_db, is_cleaned_from_disk, created_at, updated_at
     FROM FileQueue
     WHERE batch_id IS NULL AND is_saved_to_db = FALSE
@@ -389,7 +415,7 @@ def get_uncleaned_files(conn) -> list[FileQueue] | None:
     Get list of files that are not cleaned from disk
     """
     select_query = """
-    SELECT tmp_file_loc, tag_list, access_token, user_id, batch_id,
+    SELECT tmp_file_loc, tag_list, access_token, user_id, image_id, batch_id,
            is_saved_to_db, is_cleaned_from_disk, created_at, updated_at
     FROM FileQueue
     WHERE is_cleaned_from_disk = FALSE AND is_saved_to_db = TRUE
@@ -546,6 +572,20 @@ def get_completed_jobs_but_not_cleaned(conn) -> list[BatchQueue] | None:
         results = cur.fetchall()
         return [BatchQueue(*result) for result in results] if results else None
 
+
+from psycopg2.errors import UndefinedTable
+
+@with_connection
+def check_and_create_tables(conn):
+    required_tables = ["users", "image_detail", "FileQueue", "BatchQueue"]
+    for table in required_tables:
+        try:
+            with conn.cursor() as cur:
+                cur.execute(f"SELECT 1 FROM {table} LIMIT 1")
+        except UndefinedTable:
+            print(f"Table {table} is missing. Creating tables...")
+            create_tables()  # Call to create tables if any are missing
+            break
 
 if __name__ == "__main__":
     create_tables()

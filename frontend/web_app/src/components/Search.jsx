@@ -70,7 +70,7 @@ function Search() {
                 // Extract unique tags from results
                 const tagsSet = new Set();
                 data.results.forEach((item) => {
-                    item.tags.forEach((tag) => tagsSet.add(tag));
+                    item.tags?.forEach((tag) => tagsSet.add(tag));
                 });
                 setAvailableTags(Array.from(tagsSet));
             } catch (error) {
@@ -160,13 +160,13 @@ function Search() {
                 <input
                     type="text"
                     placeholder="Search..."
-                    className="input input-bordered w-full"
+                    className="input input-bordered w-full placeholder-secondary bg-neutral rounded-full"
                     ref={queryRef}
                     onKeyDown={(e) => {
                         if (e.key === 'Enter') handleSearch();
                     }}
                 />
-                <button className="btn btn-primary ml-2" onClick={handleSearch}>
+                <button className="btn btn-primary text-neutral rounded-full px-4 w-24 ml-2" onClick={handleSearch}>
                     Search
                 </button>
             </div>
@@ -199,7 +199,7 @@ function Search() {
 
                     {/* Dropdown Menu */}
                     {dropdownOpen && (
-                        <div className="origin-top-left absolute left-0 mt-2 w-56 rounded-md shadow-lg bg-white ring-1 ring-black ring-opacity-5 z-10">
+                        <div className="origin-top-left absolute left-0 mt-2 w-56 rounded-md shadow-lg bg-secondary ring-1 ring-black ring-opacity-5 z-10">
                             <div
                                 className="py-1 max-h-60 overflow-y-auto"
                                 role="menu"
@@ -246,23 +246,23 @@ function Search() {
                 <>
                     <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-4 mt-4">
                         {filteredResults.map((item) => (
-                            <div key={item.uuid} className="card bg-base-100 shadow-md">
+                            <div key={item.uuid} className="card bg-neutral opacity-95 shadow-md">
                                 <figure>
                                     <img
                                         src={item.thumbnail_url}
-                                        alt={item.title}
+                                        alt={item.title || ''}
                                         className="w-full h-48 object-cover"
                                     />
                                 </figure>
                                 <div className="card-body">
-                                    <h2 className="card-title text-sm">{item.title}</h2>
-                                    <p className="text-xs text-gray-600">
+                                    <h2 className="card-title text-sm">{item.title || ''}</h2>
+                                    {item.tags && <p className="text-xs text-primary">
                                         Tags:{' '}
-                                        {item.tags.length > 3
+                                        {item.tags?.length > 3
                                             ? `${item.tags.slice(0, 3).join(', ')}, ...`
-                                            : item.tags.join(', ')}
-                                    </p>
-                                    <div className="card-actions justify-end space-x-2 mt-2">
+                                            : item.tags?.join(', ')}
+                                    </p>}
+                                    <div className="card-actions justify-end space-x-2 mt-2 text-primary">
                                         <button
                                             className="btn btn-xs btn-outline"
                                             onClick={() => window.open(item.url, '_blank')}
@@ -274,7 +274,7 @@ function Search() {
                                             className="btn btn-xs btn-outline"
                                             onClick={() => {
                                                 setSelectedUuid(item.uuid);
-                                                setEditTags(item.tags); // Set tags to edit
+                                                setEditTags(item.tags || []); // Set tags to edit
                                             }}
                                         >
                                             Edit Tags

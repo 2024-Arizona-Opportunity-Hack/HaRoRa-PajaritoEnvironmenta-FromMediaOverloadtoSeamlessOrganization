@@ -31,7 +31,7 @@ function AuthPage() {
   // If the user is not logged in, show the "Login with Dropbox" button
   if (!profile) {
     return (
-      <div className="p-4 flex flex-col justify-center items-center h-screen bg-base-100 text-base-content">
+      <div className="mt-1 p-3 flex flex-col justify-center items-center h-screen bg-base-100 text-base-content">
         <h1 className="text-4xl font-bold mb-6">Welcome to Media Manager</h1>
         <p className="text-lg mb-6">
           Please log in to access the application.
