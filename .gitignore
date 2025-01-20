@@ -5,3 +5,8 @@ node_modules
 *.env
 *.prod.env
 .DS_Store
+IMG_0308.JPG
+pixquery_frontend_2.0.mov
+screenshot.png
+speech.wav
+nginx/release/html/assets
