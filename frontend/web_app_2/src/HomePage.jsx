@@ -1,5 +1,6 @@
-import React from 'react';
 import { CheckIcon, SearchIcon, ImageIcon, FolderSync } from 'lucide-react';
+import { handleLogin } from '@/api.js'
+import DropboxLogo from '@/assets/dropbox-1.svg'; // Import Dropbox logo
 
 const FeatureCard = ({ icon: Icon, title, description }) => (
   <div className="bg-white p-6 rounded-lg shadow-md transition-all duration-300 text-center">
@@ -24,7 +25,7 @@ const HomePage = () => {
             <p className="text-xl text-secondary mb-8">
               Effortlessly Manage Your Dropbox Images with AI-Powered Intelligence
             </p>
-            <button className="bg-blue-600 text-white px-8 py-3 rounded-full text-lg font-semibold hover:bg-blue-700 transition-colors">
+            <button className="bg-blue-600 text-white px-8 py-3 rounded-full text-lg font-semibold hover:bg-blue-700 transition-colors" onClick={handleLogin}>
               Connect Dropbox
             </button>
           </div>
